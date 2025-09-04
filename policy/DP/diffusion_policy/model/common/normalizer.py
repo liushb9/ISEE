@@ -23,9 +23,14 @@ class LinearNormalizer(DictOfTensorMixin):
         output_min=-1.0,
         range_eps=1e-4,
         fit_offset=True,
+        use_streaming=True,  # 新增：默认使用流式计算
     ):
         if isinstance(data, dict):
             for key, value in data.items():
+                if key == "text_feat":
+                    # 跳过text_feat归一化，直接存None
+                    self.params_dict[key] = None
+                    continue
                 self.params_dict[key] = _fit(
                     value,
                     last_n_dims=last_n_dims,
@@ -35,6 +40,7 @@ class LinearNormalizer(DictOfTensorMixin):
                     output_min=output_min,
                     range_eps=range_eps,
                     fit_offset=fit_offset,
+                    use_streaming=use_streaming,  # 传递流式计算参数
                 )
         else:
             self.params_dict["_default"] = _fit(
@@ -46,6 +52,7 @@ class LinearNormalizer(DictOfTensorMixin):
                 output_min=output_min,
                 range_eps=range_eps,
                 fit_offset=fit_offset,
+                use_streaming=use_streaming,  # 传递流式计算参数
             )
 
     def __call__(self, x: Union[Dict, torch.Tensor, np.ndarray]) -> torch.Tensor:
@@ -61,6 +68,10 @@ class LinearNormalizer(DictOfTensorMixin):
         if isinstance(x, dict):
             result = dict()
             for key, value in x.items():
+                if key == "text_feat":
+                    # 跳过text_feat归一化，直接返回原值
+                    result[key] = value
+                    continue
                 params = self.params_dict[key]
                 result[key] = _normalize(value, params, forward=forward)
             return result
@@ -174,9 +185,15 @@ class SingleFieldLinearNormalizer(DictOfTensorMixin):
         return cls.create_manual(scale, offset, input_stats_dict)
 
     def normalize(self, x: Union[torch.Tensor, np.ndarray]) -> torch.Tensor:
+        # 跳过text_feat归一化，直接返回原值
+        if hasattr(self, 'field_name') and self.field_name == "text_feat":
+            return x
         return _normalize(x, self.params_dict, forward=True)
 
     def unnormalize(self, x: Union[torch.Tensor, np.ndarray]) -> torch.Tensor:
+        # 跳过text_feat反归一化，直接返回原值
+        if hasattr(self, 'field_name') and self.field_name == "text_feat":
+            return x
         return _normalize(x, self.params_dict, forward=False)
 
     def get_input_stats(self):
@@ -198,30 +215,37 @@ def _fit(
     output_min=-1.0,
     range_eps=1e-4,
     fit_offset=True,
+    use_streaming=True,  # 新增：是否使用流式计算
 ):
     assert mode in ["limits", "gaussian"]
     assert last_n_dims >= 0
     assert output_max > output_min
 
-    # convert data to torch and type
-    if isinstance(data, zarr.Array):
-        data = data[:]
-    if isinstance(data, np.ndarray):
-        data = torch.from_numpy(data)
-    if dtype is not None:
-        data = data.type(dtype)
+    # 流式计算统计信息（避免内存爆炸）
+    if use_streaming and isinstance(data, zarr.Array):
+        print(f"🔄 使用流式计算统计信息 (zarr数组大小: {data.shape})")
+        input_min, input_max, input_mean, input_std = _compute_stats_streaming(data, last_n_dims)
+    else:
+        # 传统方法：将数据加载到内存
+        if isinstance(data, zarr.Array):
+            print(f"⚠️  传统方法：将zarr数组加载到内存 (大小: {data.shape})")
+            data = data[:]
+        if isinstance(data, np.ndarray):
+            data = torch.from_numpy(data)
+        if dtype is not None:
+            data = data.type(dtype)
 
-    # convert shape
-    dim = 1
-    if last_n_dims > 0:
-        dim = np.prod(data.shape[-last_n_dims:])
-    data = data.reshape(-1, dim)
+        # convert shape
+        dim = 1
+        if last_n_dims > 0:
+            dim = np.prod(data.shape[-last_n_dims:])
+        data = data.reshape(-1, dim)
 
-    # compute input stats min max mean std
-    input_min, _ = data.min(axis=0)
-    input_max, _ = data.max(axis=0)
-    input_mean = data.mean(axis=0)
-    input_std = data.std(axis=0)
+        # compute input stats min max mean std
+        input_min, _ = data.min(axis=0)
+        input_max, _ = data.max(axis=0)
+        input_mean = data.mean(axis=0)
+        input_std = data.std(axis=0)
 
     # compute scale and offset
     if mode == "limits":
@@ -274,6 +298,72 @@ def _fit(
     for p in this_params.parameters():
         p.requires_grad_(False)
     return this_params
+
+
+def _compute_stats_streaming(data: zarr.Array, last_n_dims=1):
+    """
+    流式计算统计信息，避免将整个zarr数组加载到内存
+    """
+    total_elements = data.shape[0]
+    chunk_size = min(10000, total_elements)  # 每次处理1万个元素
+    num_chunks = (total_elements + chunk_size - 1) // chunk_size
+    
+    print(f"   - 总元素数: {total_elements:,}")
+    print(f"   - 分块大小: {chunk_size:,}")
+    print(f"   - 分块数量: {num_chunks}")
+    
+    # 初始化统计变量
+    if last_n_dims > 0:
+        dim = int(np.prod(data.shape[-last_n_dims:]))
+    else:
+        dim = 1
+    
+    input_min = np.full(dim, np.inf)
+    input_max = np.full(dim, -np.inf)
+    sum_vals = np.zeros(dim)
+    sum_sq_vals = np.zeros(dim)
+    
+    # 分块处理
+    for i in range(num_chunks):
+        start_idx = i * chunk_size
+        end_idx = min((i + 1) * chunk_size, total_elements)
+        
+        # 读取当前块
+        chunk = data[start_idx:end_idx]
+        
+        # 重塑数据
+        if last_n_dims > 0:
+            chunk = chunk.reshape(-1, dim)
+        
+        # 更新统计信息
+        chunk_min = np.min(chunk, axis=0)
+        chunk_max = np.max(chunk, axis=0)
+        chunk_sum = np.sum(chunk, axis=0)
+        chunk_sum_sq = np.sum(chunk ** 2, axis=0)
+        
+        input_min = np.minimum(input_min, chunk_min)
+        input_max = np.maximum(input_max, chunk_max)
+        sum_vals += chunk_sum
+        sum_sq_vals += chunk_sum_sq
+        
+        if (i + 1) % 10 == 0 or i == num_chunks - 1:
+            progress = (i + 1) / num_chunks * 100
+            print(f"   - 进度: {progress:.1f}% ({i+1}/{num_chunks})")
+    
+    # 计算最终统计值
+    input_mean = sum_vals / total_elements
+    variance = (sum_sq_vals / total_elements) - (input_mean ** 2)
+    input_std = np.sqrt(np.maximum(variance, 0))  # 避免负方差
+    
+    print(f"✅ 流式计算完成")
+    
+    # 转换为torch tensor
+    input_min = torch.from_numpy(input_min)
+    input_max = torch.from_numpy(input_max)
+    input_mean = torch.from_numpy(input_mean)
+    input_std = torch.from_numpy(input_std)
+    
+    return input_min, input_max, input_mean, input_std
 
 
 def _normalize(x, params, forward=True):

@@ -42,6 +42,12 @@ class DPRunner:
     def stack_last_n_obs(self, all_obs, n_steps):
         assert len(all_obs) > 0
         all_obs = list(all_obs)
+        if isinstance(all_obs[0], dict):
+            # 递归处理每个key
+            result = {}
+            for key in all_obs[0]:
+                result[key] = self.stack_last_n_obs([obs[key] for obs in all_obs], n_steps)
+            return result
         if isinstance(all_obs[0], np.ndarray):
             result = np.zeros((n_steps, ) + all_obs[-1].shape, dtype=all_obs[-1].dtype)
             start_idx = -min(n_steps, len(all_obs))
@@ -93,6 +99,14 @@ class DPRunner:
             obs_dict_input["left_cam"] = obs_dict["left_cam"].unsqueeze(0)
             obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
             obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
+            if "text_feat" in obs_dict:
+                # 如果text_feat是字典，递归处理每个key
+                if isinstance(obs_dict["text_feat"], dict):
+                    obs_dict_input["text_feat"] = {}
+                    for key in obs_dict["text_feat"]:
+                        obs_dict_input["text_feat"][key] = obs_dict["text_feat"][key].unsqueeze(0)
+                else:
+                    obs_dict_input["text_feat"] = obs_dict["text_feat"].unsqueeze(0)
 
             action_dict = policy.predict_action(obs_dict_input)
 

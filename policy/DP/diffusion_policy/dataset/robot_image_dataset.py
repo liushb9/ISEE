@@ -14,6 +14,7 @@ from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.dataset.base_dataset import BaseImageDataset
 from diffusion_policy.common.normalize_util import get_image_range_normalizer
 import pdb
+from diffusion_policy.model.common.normalizer import SingleFieldLinearNormalizer
 
 
 class RobotImageDataset(BaseImageDataset):
@@ -34,7 +35,7 @@ class RobotImageDataset(BaseImageDataset):
         self.replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path,
             # keys=['head_camera', 'front_camera', 'left_camera', 'right_camera', 'state', 'action'],
-            keys=["head_camera", "state", "action"],
+            keys=["head_cam", "state", "action", "text_feat"],  # 改为head_cam
         )
 
         val_mask = get_val_mask(n_episodes=self.replay_buffer.n_episodes, val_ratio=val_ratio, seed=seed)
@@ -76,35 +77,137 @@ class RobotImageDataset(BaseImageDataset):
         return val_set
 
     def get_normalizer(self, mode="limits", **kwargs):
-        data = {
-            "action": self.replay_buffer["action"],
-            "agent_pos": self.replay_buffer["state"],
-        }
+        """
+        优化的归一化函数：
+        1. 预计算统计信息，避免内存爆炸
+        2. 只对xyz位置进行归一化，保持rotation_6d和gripper不变
+        """
         normalizer = LinearNormalizer()
-        normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
+        
+        # 预计算action的统计信息（避免内存爆炸）
+        action_data = self.replay_buffer["action"]
+        action_stat = {
+            "min": np.min(action_data, axis=0),
+            "max": np.max(action_data, axis=0),
+            "mean": np.mean(action_data, axis=0),
+            "std": np.std(action_data, axis=0),
+        }
+        
+        # 预计算state的统计信息（用于agent_pos）
+        state_data = self.replay_buffer["state"]
+        state_stat = {
+            "min": np.min(state_data, axis=0),
+            "max": np.max(state_data, axis=0),
+            "mean": np.mean(state_data, axis=0),
+            "std": np.std(state_data, axis=0),
+        }
+        
+        # 智能归一化：只对xyz位置归一化，保持rotation_6d和gripper不变
+        action_dim = action_data.shape[1]
+        if action_dim == 10:  # endpose: [x, y, z, rx, ry, rz, rw, rx2, ry2, gripper]
+            # 位置部分 (前3维): 归一化到[-1, 1]
+            pos_scale, pos_offset = self._get_pos_normalizer_params(
+                action_stat["min"][:3], action_stat["max"][:3]
+            )
+            
+            # 旋转部分 (中间6维): 保持原值
+            rot_scale = np.ones(6)
+            rot_offset = np.zeros(6)
+            
+            # 夹爪部分 (最后1维): 保持原值
+            gripper_scale = np.ones(1)
+            gripper_offset = np.zeros(1)
+            
+            # 组合所有参数
+            action_scale = np.concatenate([pos_scale, rot_scale, gripper_scale])
+            action_offset = np.concatenate([pos_offset, rot_offset, gripper_offset])
+            
+            # 创建action归一化器
+            action_normalizer = SingleFieldLinearNormalizer.create_manual(
+                scale=action_scale,
+                offset=action_offset,
+                input_stats_dict=action_stat
+            )
+            normalizer["action"] = action_normalizer
+            
+            # 创建agent_pos归一化器（使用相同的逻辑）
+            state_dim = state_data.shape[1]
+            if state_dim == 10:  # 如果state也是10维
+                state_pos_scale, state_pos_offset = self._get_pos_normalizer_params(
+                    state_stat["min"][:3], state_stat["max"][:3]
+                )
+                state_rot_scale = np.ones(6)
+                state_rot_offset = np.zeros(6)
+                state_gripper_scale = np.ones(1)
+                state_gripper_offset = np.zeros(1)
+                
+                state_scale = np.concatenate([state_pos_scale, state_rot_scale, state_gripper_scale])
+                state_offset = np.concatenate([state_pos_offset, state_rot_offset, state_gripper_offset])
+                
+                state_normalizer = SingleFieldLinearNormalizer.create_manual(
+                    scale=state_scale,
+                    offset=state_offset,
+                    input_stats_dict=state_stat
+                )
+                normalizer["agent_pos"] = state_normalizer
+            else:
+                # 对于其他维度，使用传统方法
+                state_normalizer = SingleFieldLinearNormalizer.create_manual(
+                    scale=np.ones(state_dim),
+                    offset=np.zeros(state_dim),
+                    input_stats_dict=state_stat
+                )
+                normalizer["agent_pos"] = state_normalizer
+        else:
+            # 对于其他维度，使用传统方法
+            data = {
+                "action": action_data,
+                "agent_pos": state_data,
+            }
+            normalizer.fit(data=data, last_n_dims=1, mode=mode, **kwargs)
+        
+        # 图像归一化
         normalizer["head_cam"] = get_image_range_normalizer()
         normalizer["front_cam"] = get_image_range_normalizer()
         normalizer["left_cam"] = get_image_range_normalizer()
         normalizer["right_cam"] = get_image_range_normalizer()
+        
         return normalizer
+    
+    def _get_pos_normalizer_params(self, min_vals, max_vals, output_max=1, output_min=-1, range_eps=1e-7):
+        """
+        计算位置归一化参数，将位置数据归一化到[output_min, output_max]范围
+        """
+        input_range = max_vals - min_vals
+        ignore_dim = input_range < range_eps
+        input_range[ignore_dim] = output_max - output_min
+        
+        scale = (output_max - output_min) / input_range
+        offset = output_min - scale * min_vals
+        offset[ignore_dim] = (output_max + output_min) / 2 - min_vals[ignore_dim]
+        
+        return scale, offset
 
     def __len__(self) -> int:
         return len(self.sampler)
 
     def _sample_to_data(self, sample):
         agent_pos = sample["state"].astype(np.float32)  # (agent_posx2, block_posex3)
-        head_cam = np.moveaxis(sample["head_camera"], -1, 1) / 255
+        # 数据集中的图像已经是CHW格式，不需要moveaxis
+        head_cam = sample["head_cam"].astype(np.float32) / 255  # 改为head_cam，移除moveaxis
         # front_cam = np.moveaxis(sample['front_camera'],-1,1)/255
         # left_cam = np.moveaxis(sample['left_camera'],-1,1)/255
         # right_cam = np.moveaxis(sample['right_camera'],-1,1)/255
+        text_feat = sample["text_feat"].astype(np.float32)
 
         data = {
             "obs": {
-                "head_cam": head_cam,  # T, 3, H, W
+                "head_cam": head_cam,  # T, 3, H, W - 确保键名与配置文件一致
                 # 'front_cam': front_cam, # T, 3, H, W
                 # 'left_cam': left_cam, # T, 3, H, W
                 # 'right_cam': right_cam, # T, 3, H, W
                 "agent_pos": agent_pos,  # T, D
+                "text_feat": text_feat,  # T, D_text
             },
             "action": sample["action"].astype(np.float32),  # T, D
         }
@@ -115,8 +218,11 @@ class RobotImageDataset(BaseImageDataset):
             raise NotImplementedError  # Specialized
         elif isinstance(idx, int):
             sample = self.sampler.sample_sequence(idx)
-            sample = dict_apply(sample, torch.from_numpy)
-            return sample
+            # 确保数据类型为float32
+            sample = self._sample_to_data(sample)
+            # 转换为torch tensor并确保数据类型
+            torch_sample = dict_apply(sample, lambda x: torch.from_numpy(x).float())
+            return torch_sample
         elif isinstance(idx, np.ndarray):
             assert len(idx) == self.batch_size
             for k, v in self.sampler.replay_buffer.items():
@@ -133,18 +239,21 @@ class RobotImageDataset(BaseImageDataset):
 
     def postprocess(self, samples, device):
         agent_pos = samples["state"].to(device, non_blocking=True)
-        head_cam = samples["head_camera"].to(device, non_blocking=True) / 255.0
+        # 数据集中的图像已经是CHW格式，不需要额外的格式转换
+        head_cam = samples["head_cam"].to(device, non_blocking=True) / 255.0  # 改为head_cam
         # front_cam = samples['front_camera'].to(device, non_blocking=True) / 255.0
         # left_cam = samples['left_camera'].to(device, non_blocking=True) / 255.0
         # right_cam = samples['right_camera'].to(device, non_blocking=True) / 255.0
         action = samples["action"].to(device, non_blocking=True)
+        text_feat = samples["text_feat"].to(device, non_blocking=True)
         return {
             "obs": {
-                "head_cam": head_cam,  # B, T, 3, H, W
+                "head_cam": head_cam,  # B, T, 3, H, W - 确保键名与配置文件一致
                 # 'front_cam': front_cam, # B, T, 3, H, W
                 # 'left_cam': left_cam, # B, T, 3, H, W
                 # 'right_cam': right_cam, # B, T, 3, H, W
                 "agent_pos": agent_pos,  # B, T, D
+                "text_feat": text_feat,  # B, T, D_text
             },
             "action": action,  # B, T, D
         }

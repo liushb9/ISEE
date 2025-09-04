@@ -34,6 +34,11 @@ class RobotWorkspace(BaseWorkspace):
 
     def __init__(self, cfg: OmegaConf, output_dir=None):
         super().__init__(cfg, output_dir=output_dir)
+        
+        # 多卡训练相关属性
+        self.fabric = None
+        self.rank = 0
+        self.world_size = 1
 
         # set seed
         seed = cfg.training.seed
@@ -45,11 +50,23 @@ class RobotWorkspace(BaseWorkspace):
         self.model: DiffusionUnetImagePolicy = hydra.utils.instantiate(cfg.policy)
 
         self.ema_model: DiffusionUnetImagePolicy = None
+        self.ema_wrapper = None
         if cfg.training.use_ema:
             self.ema_model = copy.deepcopy(self.model)
+            # 创建EMA包装器
+            from diffusion_policy.model.diffusion.ema_model import EMAModel
+            self.ema_wrapper = EMAModel(
+                model=self.ema_model,
+                update_after_step=0,
+                inv_gamma=1.0,
+                power=0.75,
+                min_value=0.0,
+                max_value=0.9999
+            )
 
         # configure training state
-        self.optimizer = hydra.utils.instantiate(cfg.optimizer, params=self.model.parameters())
+        # 优化器创建移到run方法中，确保模型完全初始化
+        self.optimizer = None
 
         # configure training state
         self.global_step = 0
@@ -60,25 +77,86 @@ class RobotWorkspace(BaseWorkspace):
         seed = cfg.training.seed
         head_camera_type = cfg.head_camera_type
 
+        # 创建优化器（确保模型已完全初始化）
+        if self.optimizer is None:
+            # 使用硬编码的优化器参数，因为配置中已移除optimizer部分
+            self.optimizer = torch.optim.AdamW(
+                params=self.model.parameters(),
+                lr=1.0e-4,
+                betas=(0.95, 0.999),
+                eps=1.0e-8,
+                weight_decay=1.0e-6
+            )
+            if self.rank == 0:
+                print("✅ 优化器创建成功")
+
+        # 多卡训练设置
+        if hasattr(self, 'fabric') and self.fabric is not None:
+            # 设置训练
+            self.model = self.fabric.setup(self.model)
+            self.optimizer = self.fabric.setup_optimizers(self.optimizer)
+            
+            if self.rank == 0:
+                if self.world_size > 1:
+                    print(f"✅ 多卡训练模式: rank {self.rank}/{self.world_size}")
+                else:
+                    print(f"✅ 单卡训练模式: rank {self.rank}/{self.world_size}")
+                print(f"   使用设备: {self.fabric.device}")
+                print(f"   策略: {self.fabric.strategy}")
+        else:
+            # 单卡训练
+            if self.rank == 0:
+                print("⚠️  单卡训练模式 (fabric实例未设置)")
+
         # resume training
         if cfg.training.resume:
             lastest_ckpt_path = self.get_checkpoint_path()
             if lastest_ckpt_path.is_file():
-                print(f"Resuming from checkpoint {lastest_ckpt_path}")
+                if self.rank == 0:
+                    print(f"Resuming from checkpoint {lastest_ckpt_path}")
                 self.load_checkpoint(path=lastest_ckpt_path)
 
         # configure dataset
         dataset: BaseImageDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
         assert isinstance(dataset, BaseImageDataset)
-        train_dataloader = create_dataloader(dataset, **cfg.dataloader)
+        
+        # 多卡训练时使用DistributedSampler
+        if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+                dataset,
+                num_replicas=self.world_size,
+                rank=self.rank,
+                shuffle=True,
+            )
+            dataloader_config = copy.deepcopy(cfg.dataloader)
+            dataloader_config['shuffle'] = False
+            train_dataloader = DataLoader(dataset, sampler=train_sampler, **dataloader_config)
+            if self.rank == 0:
+                print(f"多卡数据加载: dataset size = {len(dataset)}, sampler size = {len(train_dataloader)}")
+        else:
+            train_dataloader = create_dataloader(dataset, **cfg.dataloader)
+        
+        # 使用fabric设置dataloader
+        if hasattr(self, 'fabric') and self.fabric is not None:
+            train_dataloader = self.fabric.setup_dataloaders(train_dataloader)
+        
         normalizer = dataset.get_normalizer()
 
         # configure validation dataset
         val_dataset = dataset.get_validation_dataset()
         val_dataloader = create_dataloader(val_dataset, **cfg.val_dataloader)
+        
+        # 只在rank 0上设置验证dataloader
+        if hasattr(self, 'fabric') and self.fabric is not None and self.rank == 0:
+            val_dataloader = self.fabric.setup_dataloaders(val_dataloader)
 
-        self.model.set_normalizer(normalizer)
+        # 设置normalizer
+        if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+            self.model.module.set_normalizer(normalizer)
+        else:
+            self.model.set_normalizer(normalizer)
+            
         if cfg.training.use_ema:
             self.ema_model.set_normalizer(normalizer)
 
@@ -97,7 +175,7 @@ class RobotWorkspace(BaseWorkspace):
         # configure ema
         ema: EMAModel = None
         if cfg.training.use_ema:
-            ema = hydra.utils.instantiate(cfg.ema, model=self.ema_model)
+            ema = self.ema_wrapper  # 使用已创建的EMA包装器
 
         # configure env
         # env_runner: BaseImageRunner
@@ -124,7 +202,11 @@ class RobotWorkspace(BaseWorkspace):
                                              **cfg.checkpoint.topk)
 
         # device transfer
-        device = torch.device(cfg.training.device)
+        if hasattr(self, 'fabric') and self.fabric is not None:
+            device = self.fabric.device
+        else:
+            device = torch.device(cfg.training.device)
+            
         self.model.to(device)
         if self.ema_model is not None:
             self.ema_model.to(device)
@@ -147,11 +229,19 @@ class RobotWorkspace(BaseWorkspace):
 
         with JsonLogger(log_path) as json_logger:
             for local_epoch_idx in range(cfg.training.num_epochs):
+                # 多卡训练时设置epoch
+                if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                    train_dataloader.sampler.set_epoch(local_epoch_idx)
+                    
                 step_log = dict()
                 # ========= train for this epoch ==========
                 if cfg.training.freeze_encoder:
-                    self.model.obs_encoder.eval()
-                    self.model.obs_encoder.requires_grad_(False)
+                    if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                        self.model.module.obs_encoder.eval()
+                        self.model.module.obs_encoder.requires_grad_(False)
+                    else:
+                        self.model.obs_encoder.eval()
+                        self.model.obs_encoder.requires_grad_(False)
 
                 train_losses = list()
                 with tqdm.tqdm(
@@ -159,15 +249,24 @@ class RobotWorkspace(BaseWorkspace):
                         desc=f"Training epoch {self.epoch}",
                         leave=False,
                         mininterval=cfg.training.tqdm_interval_sec,
+                        disable=self.rank != 0,  # 只在rank 0上显示进度条
                 ) as tepoch:
                     for batch_idx, batch in enumerate(tepoch):
                         batch = dataset.postprocess(batch, device)
                         if train_sampling_batch is None:
                             train_sampling_batch = batch
                         # compute loss
-                        raw_loss = self.model.compute_loss(batch)
+                        if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                            raw_loss = self.model.module.compute_loss(batch)
+                        else:
+                            raw_loss = self.model.compute_loss(batch)
                         loss = raw_loss / cfg.training.gradient_accumulate_every
-                        loss.backward()
+                        
+                        # 使用fabric的backward
+                        if hasattr(self, 'fabric') and self.fabric is not None:
+                            self.fabric.backward(loss)
+                        else:
+                            loss.backward()
 
                         # step optimizer
                         if (self.global_step % cfg.training.gradient_accumulate_every == 0):
@@ -177,7 +276,10 @@ class RobotWorkspace(BaseWorkspace):
 
                         # update ema
                         if cfg.training.use_ema:
-                            ema.step(self.model)
+                            if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                                ema.step(self.model.module)
+                            else:
+                                ema.step(self.model)
 
                         # logging
                         raw_loss_cpu = raw_loss.item()
@@ -193,7 +295,8 @@ class RobotWorkspace(BaseWorkspace):
                         is_last_batch = batch_idx == (len(train_dataloader) - 1)
                         if not is_last_batch:
                             # log of last step is combined with validation and rollout
-                            json_logger.log(step_log)
+                            if self.rank == 0:  # 只在rank 0上记录日志
+                                json_logger.log(step_log)
                             self.global_step += 1
 
                         if (cfg.training.max_train_steps
@@ -206,7 +309,11 @@ class RobotWorkspace(BaseWorkspace):
                 step_log["train_loss"] = train_loss
 
                 # ========= eval for this epoch ==========
-                policy = self.model
+                if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                    policy = self.model.module
+                else:
+                    policy = self.model
+                    
                 if cfg.training.use_ema:
                     policy = self.ema_model
                 policy.eval()
@@ -218,7 +325,7 @@ class RobotWorkspace(BaseWorkspace):
                 #     step_log.update(runner_log)
 
                 # run validation
-                if (self.epoch % cfg.training.val_every) == 0:
+                if (self.epoch % cfg.training.val_every) == 0 and self.rank == 0:  # 只在rank 0上运行验证
                     with torch.no_grad():
                         val_losses = list()
                         with tqdm.tqdm(
@@ -229,7 +336,10 @@ class RobotWorkspace(BaseWorkspace):
                         ) as tepoch:
                             for batch_idx, batch in enumerate(tepoch):
                                 batch = dataset.postprocess(batch, device)
-                                loss = self.model.compute_loss(batch)
+                                if hasattr(self, 'fabric') and self.fabric is not None and self.world_size > 1:
+                                    loss = self.model.module.compute_loss(batch)
+                                else:
+                                    loss = self.model.compute_loss(batch)
                                 val_losses.append(loss)
                                 if (cfg.training.max_val_steps
                                         is not None) and batch_idx >= (cfg.training.max_val_steps - 1):
@@ -240,7 +350,7 @@ class RobotWorkspace(BaseWorkspace):
                             step_log["val_loss"] = val_loss
 
                 # run diffusion sampling on a training batch
-                if (self.epoch % cfg.training.sample_every) == 0:
+                if (self.epoch % cfg.training.sample_every) == 0 and self.rank == 0:  # 只在rank 0上运行采样
                     with torch.no_grad():
                         # sample trajectory from training set, and evaluate difference
                         batch = train_sampling_batch
@@ -259,7 +369,7 @@ class RobotWorkspace(BaseWorkspace):
                         del mse
 
                 # checkpoint
-                if ((self.epoch + 1) % cfg.training.checkpoint_every) == 0:
+                if ((self.epoch + 1) % cfg.training.checkpoint_every) == 0 and self.rank == 0:  # 只在rank 0上保存checkpoint
                     # checkpointing
                     save_name = pathlib.Path(self.cfg.task.dataset.zarr_path).stem
                     self.save_checkpoint(f"checkpoints/{save_name}-{seed}/{self.epoch + 1}.ckpt")  # TODO
@@ -269,7 +379,8 @@ class RobotWorkspace(BaseWorkspace):
 
                 # end of epoch
                 # log of last step is combined with validation and rollout
-                json_logger.log(step_log)
+                if self.rank == 0:  # 只在rank 0上记录日志
+                    json_logger.log(step_log)
                 self.global_step += 1
                 self.epoch += 1
 

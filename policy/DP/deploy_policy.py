@@ -12,6 +12,8 @@ def encode_obs(observation):
         right_cam=right_cam,
     )
     obs["agent_pos"] = observation["joint_action"]["vector"]
+    if "text_feat" in observation:
+        obs["text_feat"] = observation["text_feat"]
     return obs
 
 

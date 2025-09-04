@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import pickle
 import argparse
+import clip  # 新增
 
 ######################适合没有图形化界面的服务器####################
 import matplotlib
@@ -33,6 +34,8 @@ import IPython
 
 e = IPython.embed
 
+import cv2
+
 
 def main(args):
     set_seed(1)
@@ -45,6 +48,10 @@ def main(args):
     batch_size_train = args["batch_size"]
     batch_size_val = args["batch_size"]
     num_epochs = args["num_epochs"]
+
+    # 初始化CLIP模型
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    clip_model, preprocess = clip.load("RN50", device=device)
 
     # get task parameters
     is_sim = task_name[:4] == "sim-"
@@ -113,7 +120,7 @@ def main(args):
         ckpt_names = [f"policy_best.ckpt"]
         results = []
         for ckpt_name in ckpt_names:
-            success_rate, avg_return = eval_bc(config, ckpt_name, save_episode=True)
+            success_rate, avg_return = eval_bc(config, ckpt_name, clip_model, save_episode=True)
             results.append([ckpt_name, success_rate, avg_return])
 
         for ckpt_name, success_rate, avg_return in results:
@@ -163,13 +170,23 @@ def get_image(ts, camera_names):
     curr_images = []
     for cam_name in camera_names:
         curr_image = rearrange(ts.observation["images"][cam_name], "h w c -> c h w")
+        # 确保图像是256x256
+        if curr_image.shape[1:] != (256, 256):
+            # 如果图像尺寸不是256x256，则resize
+            curr_image_resized = []
+            for i in range(curr_image.shape[0]):
+                img = curr_image[i].cpu().numpy().transpose(1, 2, 0)  # CHW -> HWC
+                img_resized = cv2.resize(img, (256, 256))
+                img_resized = img_resized.transpose(2, 0, 1)  # HWC -> CHW
+                curr_image_resized.append(img_resized)
+            curr_image = np.stack(curr_image_resized, axis=0)
         curr_images.append(curr_image)
     curr_image = np.stack(curr_images, axis=0)
     curr_image = torch.from_numpy(curr_image / 255.0).float().cuda().unsqueeze(0)
     return curr_image
 
 
-def eval_bc(config, ckpt_name, save_episode=True):
+def eval_bc(config, ckpt_name, clip_model, save_episode=True):
     set_seed(1000)
     ckpt_dir = config["ckpt_dir"]
     state_dim = config["state_dim"]
@@ -269,7 +286,13 @@ def eval_bc(config, ckpt_name, save_episode=True):
                 ### query policy
                 if config["policy_class"] == "ACT":
                     if t % query_frequency == 0:
-                        all_actions = policy(qpos, curr_image)
+                        # 生成text_feat
+                        task_name = task_name.replace('_', ' ')
+                        text_tokens = clip.tokenize([task_name]).cuda()
+                        with torch.no_grad():
+                            text_feat = clip_model.encode_text(text_tokens)
+                        
+                        all_actions = policy(qpos, curr_image, text_feat)
                     if temporal_agg:
                         all_time_actions[[t], t:t + num_queries] = all_actions
                         actions_for_curr_step = all_time_actions[:, t]
@@ -283,7 +306,13 @@ def eval_bc(config, ckpt_name, save_episode=True):
                     else:
                         raw_action = all_actions[:, t % query_frequency]
                 elif config["policy_class"] == "CNNMLP":
-                    raw_action = policy(qpos, curr_image)
+                    # 生成text_feat
+                    task_name = task_name.replace('_', ' ')
+                    text_tokens = clip.tokenize([task_name]).cuda()
+                    with torch.no_grad():
+                        text_feat = clip_model.encode_text(text_tokens)
+                    
+                    raw_action = policy(qpos, curr_image, text_feat)
                 else:
                     raise NotImplementedError
 
@@ -347,14 +376,15 @@ def eval_bc(config, ckpt_name, save_episode=True):
 
 
 def forward_pass(data, policy):
-    image_data, qpos_data, action_data, is_pad = data
-    image_data, qpos_data, action_data, is_pad = (
+    image_data, qpos_data, action_data, is_pad, text_feat_data = data
+    image_data, qpos_data, action_data, is_pad, text_feat_data = (
         image_data.cuda(),
         qpos_data.cuda(),
         action_data.cuda(),
         is_pad.cuda(),
+        text_feat_data.cuda(),
     )
-    return policy(qpos_data, image_data, action_data, is_pad)  # TODO remove None
+    return policy(qpos_data, image_data, text_feat_data, action_data, is_pad)  # 加入text_feat参数
 
 
 def train_bc(train_dataloader, val_dataloader, config):

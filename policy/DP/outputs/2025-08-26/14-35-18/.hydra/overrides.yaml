@@ -1,0 +1,8 @@
+- +task.dataset.zarr_path=./data/six-tasks.zarr
+- training.seed=0
+- training.device=cuda:0
+- exp_name=six_tasks-robot_dp-train
+- logging.mode=online
+- setting=demo_clean
+- expert_data_num=1200
+- head_camera_type=D435

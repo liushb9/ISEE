@@ -59,6 +59,14 @@ class DETRVAE(nn.Module):
             self.input_proj = nn.Conv2d(backbones[0].num_channels, hidden_dim, kernel_size=1)
             self.backbones = nn.ModuleList(backbones)
             self.input_proj_robot_state = nn.Linear(state_dim, hidden_dim)
+            # 新增：text_feat处理MLP，支持动态维度
+            self.text_feat_proj = nn.Sequential(
+                nn.Linear(1024, hidden_dim),  # 默认1024维输入，适配现有数据
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim)
+            )
+            # 添加动态维度适配
+            self.text_feat_dim = 1024  # 默认维度
         else:
             # input_dim = 14 + 7 # robot_state + env_state
             self.input_proj_robot_state = nn.Linear(state_dim, hidden_dim)
@@ -79,13 +87,36 @@ class DETRVAE(nn.Module):
         self.latent_out_proj = nn.Linear(self.latent_dim, hidden_dim)  # project latent sample to embedding
         self.additional_pos_embed = nn.Embedding(2, hidden_dim)  # learned position embedding for proprio and latent
 
-    def forward(self, qpos, image, env_state, actions=None, is_pad=None):
+    def _adapt_text_feat_proj(self, text_feat):
+        """动态适配text_feat投影层的维度"""
+        if text_feat is None:
+            return
+            
+        # 获取text_feat的实际维度
+        actual_dim = text_feat.shape[-1]
+        
+        # 如果维度不匹配，重新创建投影层
+        if actual_dim != self.text_feat_dim:
+            print(f"检测到text_feat维度变化: {self.text_feat_dim} -> {actual_dim}")
+            self.text_feat_dim = actual_dim
+            self.text_feat_proj = nn.Sequential(
+                nn.Linear(actual_dim, self.transformer.d_model),
+                nn.ReLU(),
+                nn.Linear(self.transformer.d_model, self.transformer.d_model)
+            ).to(text_feat.device)
+            print(f"已重新创建text_feat投影层，输入维度: {actual_dim}")
+
+    def forward(self, qpos, image, env_state, text_feat=None, actions=None, is_pad=None):
         """
         qpos: batch, qpos_dim
         image: batch, num_cam, channel, height, width
         env_state: None
+        text_feat: batch, text_feat_dim (新增参数)
         actions: batch, seq, action_dim
         """
+        # 动态适配text_feat投影层
+        self._adapt_text_feat_proj(text_feat)
+        
         is_training = actions is not None  # train or val
         bs, _ = qpos.shape
         ### Obtain latent z from action sequence
@@ -131,6 +162,13 @@ class DETRVAE(nn.Module):
                 all_cam_pos.append(pos)
             # proprioception features
             proprio_input = self.input_proj_robot_state(qpos)
+            
+            # 新增：处理text_feat
+            if text_feat is not None:
+                text_feat_processed = self.text_feat_proj(text_feat)  # (bs, hidden_dim)
+                # 将text_feat与proprio_input拼接
+                proprio_input = proprio_input + text_feat_processed
+            
             # fold camera dimension into width dimension
             src = torch.cat(all_cam_features, axis=3)
             pos = torch.cat(all_cam_pos, axis=3)
@@ -170,16 +208,24 @@ class CNNMLP(nn.Module):
                 backbone_down_projs.append(down_proj)
             self.backbone_down_projs = nn.ModuleList(backbone_down_projs)
 
-            mlp_in_dim = 768 * len(backbones) + 14
+            # 新增：text_feat处理MLP
+            self.text_feat_proj = nn.Sequential(
+                nn.Linear(1024, 256),  # 修改为1024维输入，适配现有数据
+                nn.ReLU(),
+                nn.Linear(256, 128)
+            )
+
+            mlp_in_dim = 768 * len(backbones) + 14 + 128  # 加入text_feat维度
             self.mlp = mlp(input_dim=mlp_in_dim, hidden_dim=1024, output_dim=state_dim, hidden_depth=2)
         else:
             raise NotImplementedError
 
-    def forward(self, qpos, image, env_state, actions=None):
+    def forward(self, qpos, image, env_state, text_feat=None, actions=None):
         """
         qpos: batch, qpos_dim
         image: batch, num_cam, channel, height, width
         env_state: None
+        text_feat: batch, text_feat_dim (新增参数)
         actions: batch, seq, action_dim
         """
         is_training = actions is not None  # train or val
@@ -196,7 +242,14 @@ class CNNMLP(nn.Module):
         for cam_feature in all_cam_features:
             flattened_features.append(cam_feature.reshape([bs, -1]))
         flattened_features = torch.cat(flattened_features, axis=1)  # 768 each
-        features = torch.cat([flattened_features, qpos], axis=1)  # qpos: 14
+        
+        # 新增：处理text_feat
+        if text_feat is not None:
+            text_feat_processed = self.text_feat_proj(text_feat)  # (bs, 128)
+            features = torch.cat([flattened_features, qpos, text_feat_processed], axis=1)  # qpos: 14, text_feat: 128
+        else:
+            features = torch.cat([flattened_features, qpos], axis=1)  # qpos: 14
+        
         a_hat = self.mlp(features)
         return a_hat
 

@@ -31,7 +31,7 @@ class ACTPolicy(nn.Module):
         self.kl_weight = args_override["kl_weight"]
         print(f"KL Weight {self.kl_weight}")
 
-    def __call__(self, qpos, image, actions=None, is_pad=None):
+    def __call__(self, qpos, image, text_feat=None, actions=None, is_pad=None):
         env_state = None
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         image = normalize(image)
@@ -39,7 +39,7 @@ class ACTPolicy(nn.Module):
             actions = actions[:, :self.model.num_queries]
             is_pad = is_pad[:, :self.model.num_queries]
 
-            a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, image, env_state, actions, is_pad)
+            a_hat, is_pad_hat, (mu, logvar) = self.model(qpos, image, env_state, text_feat, actions, is_pad)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             loss_dict = dict()
             all_l1 = F.l1_loss(actions, a_hat, reduction="none")
@@ -49,7 +49,7 @@ class ACTPolicy(nn.Module):
             loss_dict["loss"] = loss_dict["l1"] + loss_dict["kl"] * self.kl_weight
             return loss_dict
         else:  # inference time
-            a_hat, _, (_, _) = self.model(qpos, image, env_state)  # no action, sample from prior
+            a_hat, _, (_, _) = self.model(qpos, image, env_state, text_feat)  # no action, sample from prior
             return a_hat
 
     def configure_optimizers(self):
@@ -64,20 +64,20 @@ class CNNMLPPolicy(nn.Module):
         self.model = model  # decoder
         self.optimizer = optimizer
 
-    def __call__(self, qpos, image, actions=None, is_pad=None):
+    def __call__(self, qpos, image, text_feat=None, actions=None, is_pad=None):
         env_state = None  # TODO
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         image = normalize(image)
         if actions is not None:  # training time
             actions = actions[:, 0]
-            a_hat = self.model(qpos, image, env_state, actions)
+            a_hat = self.model(qpos, image, env_state, text_feat, actions)
             mse = F.mse_loss(actions, a_hat)
             loss_dict = dict()
             loss_dict["mse"] = mse
             loss_dict["loss"] = loss_dict["mse"]
             return loss_dict
         else:  # inference time
-            a_hat = self.model(qpos, image, env_state)  # no action, sample from prior
+            a_hat = self.model(qpos, image, env_state, text_feat)  # no action, sample from prior
             return a_hat
 
     def configure_optimizers(self):
@@ -147,7 +147,15 @@ class ACT:
                 self.stats = None
 
             # Load policy weights
-            ckpt_path = os.path.join(ckpt_dir, "policy_best.ckpt")
+            checkpoint_num = args_override.get("checkpoint_num", "best")
+            if checkpoint_num == "last":
+                ckpt_path = os.path.join(ckpt_dir, "policy_last.ckpt")
+            elif checkpoint_num == "best":
+                ckpt_path = os.path.join(ckpt_dir, "policy_best.ckpt")
+            else:
+                # Try to load specific epoch checkpoint
+                ckpt_path = os.path.join(ckpt_dir, f"policy_epoch_{checkpoint_num}_seed_0.ckpt")
+
             print("current pwd:", os.getcwd())
             if os.path.exists(ckpt_path):
                 loading_status = self.policy.load_state_dict(torch.load(ckpt_path))
@@ -155,6 +163,14 @@ class ACT:
                 print(f"Loading status: {loading_status}")
             else:
                 print(f"Warning: Could not find policy checkpoint at {ckpt_path}")
+                # Fallback to best checkpoint if specified one doesn't exist
+                fallback_path = os.path.join(ckpt_dir, "policy_best.ckpt")
+                if os.path.exists(fallback_path):
+                    loading_status = self.policy.load_state_dict(torch.load(fallback_path))
+                    print(f"Fallback: Loaded policy weights from {fallback_path}")
+                    print(f"Loading status: {loading_status}")
+                else:
+                    print(f"Error: No checkpoint found at {ckpt_path} or {fallback_path}")
         else:
             self.stats = None
 

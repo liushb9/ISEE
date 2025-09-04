@@ -10,6 +10,20 @@ import cv2
 import argparse
 import pdb
 import json
+import clip  # 新增
+from typing import List  # 新增
+import torch
+
+
+def text2feats(text_inputs: List[str]):
+    # Load model
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    model, preprocess = clip.load("RN50", device=device)
+    text_tokens = clip.tokenize(text_inputs).to(device)
+    with torch.no_grad():
+        text_features = model.encode_text(text_tokens)
+        text_feat = text_features.detach().cpu().numpy()
+    return text_feat.astype(np.float32)
 
 
 def load_hdf5(dataset_path):
@@ -56,6 +70,11 @@ def data_transform(path, episode_num, save_path):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
 
+    # 获取任务名（从路径中提取）
+    task_name = os.path.basename(os.path.dirname(path)).replace('sim-', '')
+    text_inputs = task_name.replace('_', ' ')
+    text_feat = text2feats(text_inputs)[0]  # 取第一个特征
+
     for i in range(episode_num):
         left_gripper_all, left_arm_all, right_gripper_all, right_arm_all, image_dict = (load_hdf5(
             os.path.join(path, f"episode{i}.hdf5")))
@@ -85,17 +104,17 @@ def data_transform(path, episode_num, save_path):
 
                 camera_high_bits = image_dict["head_camera"][j]
                 camera_high = cv2.imdecode(np.frombuffer(camera_high_bits, np.uint8), cv2.IMREAD_COLOR)
-                camera_high_resized = cv2.resize(camera_high, (640, 480))
+                camera_high_resized = cv2.resize(camera_high, (256, 256))  # 修改为256x256
                 cam_high.append(camera_high_resized)
 
                 camera_right_wrist_bits = image_dict["right_camera"][j]
                 camera_right_wrist = cv2.imdecode(np.frombuffer(camera_right_wrist_bits, np.uint8), cv2.IMREAD_COLOR)
-                camera_right_wrist_resized = cv2.resize(camera_right_wrist, (640, 480))
+                camera_right_wrist_resized = cv2.resize(camera_right_wrist, (256, 256))  # 修改为256x256
                 cam_right_wrist.append(camera_right_wrist_resized)
 
                 camera_left_wrist_bits = image_dict["left_camera"][j]
                 camera_left_wrist = cv2.imdecode(np.frombuffer(camera_left_wrist_bits, np.uint8), cv2.IMREAD_COLOR)
-                camera_left_wrist_resized = cv2.resize(camera_left_wrist, (640, 480))
+                camera_left_wrist_resized = cv2.resize(camera_left_wrist, (256, 256))  # 修改为256x256
                 cam_left_wrist.append(camera_left_wrist_resized)
 
             if j != 0:
@@ -112,6 +131,8 @@ def data_transform(path, episode_num, save_path):
             obs.create_dataset("qpos", data=np.array(qpos))
             obs.create_dataset("left_arm_dim", data=np.array(left_arm_dim))
             obs.create_dataset("right_arm_dim", data=np.array(right_arm_dim))
+            # 添加text_feat到observations中
+            obs.create_dataset("text_feat", data=text_feat)
             image = obs.create_group("images")
             # cam_high_enc, len_high = images_encoding(cam_high)
             # cam_right_wrist_enc, len_right = images_encoding(cam_right_wrist)

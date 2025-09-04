@@ -44,6 +44,34 @@ class DP:
         if cfg.training.use_ema:
             policy = workspace.ema_model
 
+        # 强制更新obs_encoder的配置以匹配实际数据形状
+        if hasattr(policy, 'obs_encoder') and hasattr(policy.obs_encoder, 'key_shape_map'):
+            # 将head_cam的形状改为(3, 240, 320)以匹配实际输入图像形状
+            if 'head_cam' in policy.obs_encoder.key_shape_map:
+                policy.obs_encoder.key_shape_map['head_cam'] = (3, 240, 320)
+            
+            # 同时更新shape_meta中的配置
+            if hasattr(policy.obs_encoder, 'shape_meta') and 'obs' in policy.obs_encoder.shape_meta:
+                if 'head_cam' in policy.obs_encoder.shape_meta['obs']:
+                    policy.obs_encoder.shape_meta['obs']['head_cam']['shape'] = [3, 240, 320]
+            
+            # 重新构建key_transform_map以确保resize操作正确应用
+            if hasattr(policy.obs_encoder, 'key_transform_map') and 'head_cam' in policy.obs_encoder.key_transform_map:
+                import torchvision
+                # 创建新的resize transform
+                new_resizer = torchvision.transforms.Resize(size=(256, 256))
+                # 获取现有的其他transforms
+                existing_transform = policy.obs_encoder.key_transform_map['head_cam']
+                if hasattr(existing_transform, 'modules'):
+                    # 如果transform是Sequential，替换第一个模块（resizer）
+                    modules = list(existing_transform.modules())
+                    if len(modules) > 1:  # 跳过Sequential本身
+                        new_transform = torch.nn.Sequential(
+                            new_resizer,
+                            *modules[2:]  # 跳过Sequential和原来的resizer
+                        )
+                        policy.obs_encoder.key_transform_map['head_cam'] = new_transform
+
         device = torch.device(device)
         policy.to(device)
         policy.eval()

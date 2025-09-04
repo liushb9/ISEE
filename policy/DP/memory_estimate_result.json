@@ -1,0 +1,57 @@
+{
+  "training_config": {
+    "task_name": "six_tasks",
+    "num_gpus": 3,
+    "gpu_ids": [
+      0,
+      1,
+      2
+    ],
+    "batch_size": 128
+  },
+  "memory_estimate": {
+    "base_memory": {
+      "model_weights": 2.0,
+      "optimizer_states": 4.0,
+      "gradients": 2.0,
+      "activations": 1.0,
+      "system_overhead": 0.5
+    },
+    "data_memory": {
+      "batch_data": 4.76837158203125e-06,
+      "cached_data": 0.0
+    },
+    "ddp_overhead": {
+      "gradient_sync": 0.5,
+      "communication": 0.3,
+      "redundant_storage": 0.2
+    },
+    "total_memory": 12.500004768371582,
+    "per_gpu_memory": 4.16666825612386
+  },
+  "dataset_info": {
+    "total_size_gb": 0,
+    "details": {}
+  },
+  "resource_check": {
+    "gpus": [
+      {
+        "id": 0,
+        "free_gb": 23.607421875,
+        "status": "\u2705 \u53ef\u7528"
+      },
+      {
+        "id": 1,
+        "free_gb": 23.630859375,
+        "status": "\u2705 \u53ef\u7528"
+      },
+      {
+        "id": 2,
+        "free_gb": 23.6298828125,
+        "status": "\u2705 \u53ef\u7528"
+      }
+    ],
+    "total_free_memory": 70.8681640625,
+    "can_run": true
+  }
+}

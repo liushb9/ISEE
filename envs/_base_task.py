@@ -116,7 +116,10 @@ class Base_Task(gym.Env):
         self.right_cnt = 0
 
         self.instruction = None  # for Eval
-
+        
+        # 新增text_feat特征
+        self.text_feat = kwags.get("text_feat", None)
+        
         self.create_table_and_wall(table_xy_bias=table_xy_bias, table_height=0.74)
         self.load_robot(**kwags)
         self.load_camera(**kwags)
@@ -442,6 +445,7 @@ class Base_Task(gym.Env):
             "pointcloud": [],
             "joint_action": {},
             "endpose": {},
+            "text_feat": {},
         }
 
         pkl_dic["observation"] = self.cameras.get_config()
@@ -496,7 +500,13 @@ class Base_Task(gym.Env):
         if self.data_type.get("pointcloud", False):
             pkl_dic["pointcloud"] = self.cameras.get_pcd(self.data_type.get("conbine", False))
 
+        # 填充text_feat
+        if self.text_feat is not None:
+            pkl_dic["text_feat"] = self.text_feat
+
         self.now_obs = deepcopy(pkl_dic)
+        # 增加task_name字段，便于评测区分任务
+        pkl_dic["task_name"] = self.task_name
         return pkl_dic
 
     def save_camera_rgb(self, save_path, camera_name='head_camera'):

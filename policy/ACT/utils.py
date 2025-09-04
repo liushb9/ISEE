@@ -5,6 +5,7 @@ import h5py
 from torch.utils.data import TensorDataset, DataLoader
 
 import IPython
+import cv2
 
 e = IPython.embed
 
@@ -39,6 +40,18 @@ class EpisodicDataset(torch.utils.data.Dataset):
                 start_ts = np.random.choice(episode_len)
             # get observation at start_ts only
             qpos = root["/observations/qpos"][start_ts]
+            # 获取text_feat（每个episode的text_feat都相同）
+            text_feat = root["/observations/text_feat"][()]
+            
+            # 验证text_feat维度
+            if text_feat.ndim == 1:
+                text_feat_dim = text_feat.shape[0]
+            else:
+                text_feat_dim = text_feat.shape[-1]
+            
+            if text_feat_dim != 512 and text_feat_dim != 1024:
+                print(f"警告: episode_{episode_id} 的text_feat维度异常: {text_feat.shape}")
+            
             image_dict = dict()
             for cam_name in self.camera_names:
                 image_dict[cam_name] = root[f"/observations/images/{cam_name}"][start_ts]
@@ -59,7 +72,12 @@ class EpisodicDataset(torch.utils.data.Dataset):
         # new axis for different cameras
         all_cam_images = []
         for cam_name in self.camera_names:
-            all_cam_images.append(image_dict[cam_name])
+            # 确保图像是256x256
+            img = image_dict[cam_name]
+            if img.shape[:2] != (256, 256):
+                # 如果图像尺寸不是256x256，则resize
+                img = cv2.resize(img, (256, 256))
+            all_cam_images.append(img)
         all_cam_images = np.stack(all_cam_images, axis=0)
 
         # construct observations
@@ -67,6 +85,7 @@ class EpisodicDataset(torch.utils.data.Dataset):
         qpos_data = torch.from_numpy(qpos).float()
         action_data = torch.from_numpy(padded_action).float()
         is_pad = torch.from_numpy(is_pad).bool()
+        text_feat_data = torch.from_numpy(text_feat).float()
 
         # channel last
         image_data = torch.einsum("k h w c -> k c h w", image_data)
@@ -75,8 +94,9 @@ class EpisodicDataset(torch.utils.data.Dataset):
         image_data = image_data / 255.0
         action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
         qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
+        # text_feat不归一化
 
-        return image_data, qpos_data, action_data, is_pad
+        return image_data, qpos_data, action_data, is_pad, text_feat_data
 
 
 def get_norm_stats(dataset_dir, num_episodes):
@@ -131,6 +151,7 @@ def get_norm_stats(dataset_dir, num_episodes):
         "qpos_mean": qpos_mean.numpy().squeeze(),
         "qpos_std": qpos_std.numpy().squeeze(),
         "example_qpos": qpos,
+        # 不包含text_feat的归一化统计信息
     }
 
     return stats, max_action_len

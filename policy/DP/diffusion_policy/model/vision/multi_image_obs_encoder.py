@@ -24,6 +24,8 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         # renormalize rgb input with imagenet normalization
         # assuming input in [0,1]
         imagenet_norm: bool = False,
+        text_feat_dim: int = 1024,  # 新增，text_feat维度
+        text_feat_out_dim: int = 256,  # 新增，MLP输出维度
     ):
         """
         Assumes rgb input: B,C,H,W
@@ -109,6 +111,8 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                 this_transform = nn.Sequential(this_resizer, this_randomizer, this_normalizer)
                 key_transform_map[key] = this_transform
             elif type == "low_dim":
+                if key == "text_feat":
+                    self.text_feat_dim = shape[0]
                 low_dim_keys.append(key)
             else:
                 raise RuntimeError(f"Unsupported obs type: {type}")
@@ -122,6 +126,17 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         self.rgb_keys = rgb_keys
         self.low_dim_keys = low_dim_keys
         self.key_shape_map = key_shape_map
+
+        # 如果有text_feat，定义MLP
+        if "text_feat" in low_dim_keys:
+            self.text_feat_mlp = nn.Sequential(
+                nn.Linear(self.text_feat_dim, text_feat_out_dim),
+                nn.ReLU(),
+                nn.Linear(text_feat_out_dim, text_feat_out_dim)
+            )
+            self.text_feat_out_dim = text_feat_out_dim
+        else:
+            self.text_feat_mlp = None
 
     def forward(self, obs_dict):
         batch_size = None
@@ -158,8 +173,10 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                     batch_size = img.shape[0]
                 else:
                     assert batch_size == img.shape[0]
+                
                 assert img.shape[1:] == self.key_shape_map[key]
                 img = self.key_transform_map[key](img)
+                
                 feature = self.key_model_map[key](img)
                 features.append(feature)
 
@@ -171,7 +188,10 @@ class MultiImageObsEncoder(ModuleAttrMixin):
             else:
                 assert batch_size == data.shape[0]
             assert data.shape[1:] == self.key_shape_map[key]
-            features.append(data)
+            if key == "text_feat" and self.text_feat_mlp is not None:
+                features.append(self.text_feat_mlp(data))
+            else:
+                features.append(data)
 
         # concatenate all features
         result = torch.cat(features, dim=-1)
