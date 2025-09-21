@@ -5,7 +5,9 @@ CONFIG_FILE="model_config/$CONFIG_NAME.yml"
 
 echo "CONFIG_FILE_PATH: $CONFIG_FILE"
 ### ===============================
-
+export WANDB_BASE_URL=https://api.bandw.top
+export WANDB_API_KEY="7d0049c9992505326ca78a42d89dcfefa2e3d51a" # <--- 在这里粘贴您的密钥
+export WANDB_ENTITY="liushb9-peking-university"  
 export NCCL_IB_HCA=mlx5_0:1,mlx5_1:1,mlx5_2:1,mlx5_3:1,mlx5_4:1,mlx5_7:1,mlx5_8:1,mlx5_9:1
 export NCCL_IB_DISABLE=0
 export NCCL_SOCKET_IFNAME=bond0
@@ -16,7 +18,7 @@ export NCCL_DEBUG=info
 export NCCL_SOCKET_IFNAME=eth0
 export NCCL_IB_DISABLE=1
 export TEXT_ENCODER_NAME="google/t5-v1_1-xxl"
-export VISION_ENCODER_NAME="../weights/RDT/siglip-so400m-patch14-384"
+export VISION_ENCODER_NAME="/media/liushengbang/robotwin/RoboTwin-RoboTwin-1.0/policy/RDT/siglip-so400m-patch14-384"
 export CFLAGS="-I/usr/include"
 export LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
 export WANDB_PROJECT="RDT"
@@ -46,6 +48,13 @@ GRAD_ACCUM_STEPS=$(python scripts/read_yaml.py "$CONFIG_FILE" gradient_accumulat
 OUTPUT_DIR=$(python scripts/read_yaml.py "$CONFIG_FILE" checkpoint_path)
 CUDA_USE=$(python scripts/read_yaml.py "$CONFIG_FILE" cuda_visible_device)
 
+NUM_GPUS=$(echo "$CUDA_USE" | tr ',' '\n' | wc -l)
+echo "NUM_GPUS=$NUM_GPUS"
+
+# ========== Random Port ==========
+export MASTER_ADDR=127.0.0.1
+export MASTER_PORT=$(shuf -i 20000-65000 -n 1)
+echo "MASTER_PORT=$MASTER_PORT"
 
 PRETRAINED_MODEL_NAME=$(echo "$PRETRAINED_MODEL_NAME" | tr -d '"')
 CUDA_USE=$(echo "$CUDA_USE" | tr -d '"')
@@ -88,4 +97,3 @@ accelerate launch --main_process_port=28499  main.py \
     --gradient_accumulation_steps=$GRAD_ACCUM_STEPS \
     --model_config_path=$CONFIG_FILE \
     --CONFIG_NAME=$CONFIG_NAME
-

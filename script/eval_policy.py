@@ -292,7 +292,11 @@ def eval_policy(task_name,
         reset_func(model)
         while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
             observation = TASK_ENV.get_obs()
+<<<<<<< Updated upstream
             eval_func(TASK_ENV, model, observation)  
+=======
+            eval_func(TASK_ENV, model, observation, task_name)
+>>>>>>> Stashed changes
             if TASK_ENV.eval_success:
                 succ = True
                 break

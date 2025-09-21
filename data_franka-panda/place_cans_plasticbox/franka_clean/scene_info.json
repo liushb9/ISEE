@@ -1,0 +1,602 @@
+{
+    "episode_0": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_1": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_2": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_3": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_4": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_5": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_6": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_7": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_8": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_9": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_10": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_11": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_12": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_13": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base2"
+        }
+    },
+    "episode_14": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_15": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_16": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_17": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_18": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_19": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base2"
+        }
+    },
+    "episode_20": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_21": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_22": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_23": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base1",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_24": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base2"
+        }
+    },
+    "episode_25": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_26": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_27": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_28": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_29": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base1",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base2"
+        }
+    },
+    "episode_30": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_31": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_32": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_33": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base1",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_34": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_35": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_36": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_37": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base1"
+        }
+    },
+    "episode_38": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base2",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_39": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base2"
+        }
+    },
+    "episode_40": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_41": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base1",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base5"
+        }
+    },
+    "episode_42": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_43": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base0",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_44": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base5",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_45": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_46": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base3",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base3"
+        }
+    },
+    "episode_47": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base6",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base6"
+        }
+    },
+    "episode_48": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base5",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    },
+    "episode_49": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "071_can/base1",
+            "{B}": "062_plasticbox/base3",
+            "{C}": "071_can/base0"
+        }
+    }
+}

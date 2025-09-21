@@ -157,7 +157,7 @@ if __name__ == "__main__":
     tokenizer, text_encoder = None, None
     for idx in range(expert_data_num):
         print(f"Processing Language: {idx}", end="\r")
-        data_file_path = (f"../../data/{task_name}/{task_config}/instructions/episode{idx}.json")
+        data_file_path = (f"../../data/{task_name}/{task_config}/instructions/episode{0}.json") #idx --> 0
         target_dir = (f"processed_data/{task_name}-{task_config}-{expert_data_num}/episode_{idx}")
         tokenizer, text_encoder = encode_lang(
             DATA_FILE_PATH=data_file_path,

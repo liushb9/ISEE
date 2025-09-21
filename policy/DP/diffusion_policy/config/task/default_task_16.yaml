@@ -19,6 +19,12 @@ shape_meta: &shape_meta
     agent_pos:
       shape: [16]
       type: low_dim
+    text_feat:
+      shape: [1024]
+      type: text
+    action_mask:
+      shape: [16]
+      type: low_dim
   action:
     shape: [16]
 

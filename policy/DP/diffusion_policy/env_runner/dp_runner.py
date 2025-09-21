@@ -100,13 +100,9 @@ class DPRunner:
             obs_dict_input["right_cam"] = obs_dict["right_cam"].unsqueeze(0)
             obs_dict_input["agent_pos"] = obs_dict["agent_pos"].unsqueeze(0)
             if "text_feat" in obs_dict:
-                # 如果text_feat是字典，递归处理每个key
-                if isinstance(obs_dict["text_feat"], dict):
-                    obs_dict_input["text_feat"] = {}
-                    for key in obs_dict["text_feat"]:
-                        obs_dict_input["text_feat"][key] = obs_dict["text_feat"][key].unsqueeze(0)
-                else:
-                    obs_dict_input["text_feat"] = obs_dict["text_feat"].unsqueeze(0)
+                obs_dict_input["text_feat"] = obs_dict["text_feat"].unsqueeze(0)
+            if "action_mask" in obs_dict:
+                obs_dict_input["action_mask"] = obs_dict["action_mask"].unsqueeze(0)
 
             action_dict = policy.predict_action(obs_dict_input)
 

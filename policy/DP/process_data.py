@@ -8,10 +8,14 @@ import argparse
 import yaml
 import cv2
 import h5py
-import clip  # 新增
-from typing import List  # 新增
-import torch
-import sys
+try:
+    import torch
+    import clip
+    CLIP_AVAILABLE = True
+except ImportError:
+    CLIP_AVAILABLE = False
+    print("Warning: CLIP not available, using dummy text features")
+from typing import List
 
 # 添加UVA模块路径
 sys.path.append('/home/zijian/RoboTwin/policy/UVA')
@@ -672,6 +676,17 @@ def print_data_processing_summary(embodiment_type, episode_list, load_dir):
     print(f"        ========================================")
 
 
+def text2feats(text_inputs: List[str]):
+    # Load model
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    model, preprocess = clip.load("RN50", device=device)
+    text_tokens = clip.tokenize(text_inputs).to(device)
+    with torch.no_grad():
+        text_features = model.encode_text(text_tokens)
+        text_feat = text_features.detach().cpu().numpy()
+    return text_feat.astype(np.float32)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process some episodes.")
     parser.add_argument(
@@ -690,6 +705,11 @@ def main():
     task_name = args.task_name
     num = args.expert_data_num
     task_config = args.task_config
+
+    # Convert task name to text features
+    task_text = task_name.replace("_", " ")
+    text_feat = text2feats([task_text])
+    print(f"Task: {task_name}, Text: '{task_text}', Text feature shape: {text_feat.shape}")
 
     load_dir = "../../data/" + str(task_name) + "/" + str(task_config)
 
@@ -768,42 +788,34 @@ def process_embodiment_episodes(embodiment_type, episode_list, load_dir, save_di
     zarr_data = zarr_root.create_group("data")
     zarr_meta = zarr_root.create_group("meta")
 
-    # 初始化数据收集器
-    head_camera_arrays = []
-    state_arrays = []
-    joint_action_arrays = []
-    text_feat_arrays = []
-    episode_ends_arrays = []
-    
-    total_count = 0
-    
-    # 加载embodiment配置
-    try:
-        embodiment_config = load_embodiment_config(embodiment_type)
-        print(f"  ✓ 成功加载 {embodiment_type} 配置")
-    except Exception as e:
-        print(f"  ❌ 加载 {embodiment_type} 配置失败: {e}")
-        return
-    
-    # 处理每个episode
-    for episode_idx, episode_num in enumerate(episode_list):
-        # 精简输出：只显示每10个episode的进度
-        if episode_idx % 10 == 0 or episode_idx == len(episode_list) - 1:
-            print(f"    处理 episode {episode_num} ({episode_idx + 1}/{len(episode_list)})")
-        
-        load_path = os.path.join(load_dir, f"data/episode{episode_num}.hdf5")
-        
-        try:
-            # 加载HDF5数据
-            data = load_hdf5(load_path, embodiment_config)
-            
-            # 标准化机器人数据（保持原始维度）
-            normalized_data = normalize_robot_data_safe(data, embodiment_type)
-            
-            # 提取文本特征
-        text_inputs = task_name.replace('_', ' ')
-            text_feat = text2feats(text_inputs)[0]
-        text_feat_arrays.append(text_feat)
+    head_camera_arrays, front_camera_arrays, left_camera_arrays, right_camera_arrays = (
+        [],
+        [],
+        [],
+        [],
+    )
+    episode_ends_arrays, action_arrays, state_arrays, joint_action_arrays, action_mask_arrays = (
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
+
+    while current_ep < num:
+        print(f"processing episode: {current_ep + 1} / {num}", end="\r")
+
+        load_path = os.path.join(load_dir, f"data/episode{current_ep}.hdf5")
+        (
+            left_gripper_all,
+            left_arm_all,
+            right_gripper_all,
+            right_arm_all,
+            vector_all,
+            image_dict_all,
+        ) = load_hdf5(load_path)
+
+        for j in range(0, left_gripper_all.shape[0]):
 
             # 处理图像和状态数据
             if "image_dict" in normalized_data and "head_camera" in normalized_data["image_dict"]:
@@ -816,39 +828,45 @@ def process_embodiment_episodes(embodiment_type, episode_list, load_dir, save_di
                 
                 for j in range(episode_length):
             head_img_bit = image_dict_all["head_camera"][j]
-                    
-                    # 获取状态数据
-                    if "vector" in normalized_data:
-                        joint_state = normalized_data["vector"][j]
-                    elif "action" in normalized_data:
-                        joint_state = normalized_data["action"][j]
-                    else:
-                        # 如果没有状态数据，跳过这个时间步
-                        continue
-                    
-                    # 确保joint_state是1D数组
-                    if joint_state.ndim > 1:
-                        joint_state = joint_state.flatten()
-                    
-                    # 处理图像
-                    if j != episode_length - 1:  # 不是最后一个时间步
+            joint_state = vector_all[j]
+
+            # Detect action dimension and apply padding
+            action_dim = joint_state.shape[-1] if joint_state.ndim > 0 else 1
+            if action_dim == 7:  # 6 joints + 1 gripper (single arm)
+                # Pad to 16 dimensions, set last 9 dimensions to 0
+                padded_action = np.pad(joint_state, (0, 9), mode='constant', constant_values=0)
+                action_mask = np.zeros(16, dtype=np.float32)
+                action_mask[:7] = 1  # First 7 dimensions are valid (6 joints + 1 gripper)
+            elif action_dim == 8:  # 7 joints + 1 gripper (single arm)
+                # Pad to 16 dimensions, set last 8 dimensions to 0
+                padded_action = np.pad(joint_state, (0, 8), mode='constant', constant_values=0)
+                action_mask = np.zeros(16, dtype=np.float32)
+                action_mask[:8] = 1  # First 8 dimensions are valid (7 joints + 1 gripper)
+            elif action_dim == 14:  # Dual arm: (6 joints + 1 gripper) * 2 = 14
+                # Pad to 16 dimensions, set last 2 dimensions to 0
+                padded_action = np.pad(joint_state, (0, 2), mode='constant', constant_values=0)
+                action_mask = np.ones(16, dtype=np.float32)
+                action_mask[-2:] = 0  # Last 2 dimensions are invalid
+            elif action_dim == 16:  # Dual arm: (7 joints + 1 gripper) * 2 = 16
+                padded_action = joint_state
+                action_mask = np.ones(16, dtype=np.float32)
+            else:
+                raise ValueError(f"Unsupported action dimension: {action_dim}. Expected 7, 8, 14, or 16.")
+
+            if j != left_gripper_all.shape[0] - 1:
                 head_img = cv2.imdecode(np.frombuffer(head_img_bit, np.uint8), cv2.IMREAD_COLOR)
                         head_img_tensor = torch.from_numpy(head_img).float().permute(2, 0, 1).unsqueeze(0)
                 head_img_resized = torch.nn.functional.interpolate(head_img_tensor, size=(256, 256), mode='bilinear', align_corners=False)
                         head_img = head_img_resized.squeeze(0).permute(1, 2, 0).cpu().numpy().astype(np.uint8)
                         
                 head_camera_arrays.append(head_img)
-                state_arrays.append(joint_state)
-                    
-                    # 处理动作数据
-                    if j != 0 and "action" in normalized_data:
-                        action_data = normalized_data["action"][j]
-                        if action_data.ndim > 1:
-                            action_data = action_data.flatten()
-                        joint_action_arrays.append(action_data)
-                
-                # 更新episode结束索引
-                total_count += episode_length - 1
+                state_arrays.append(padded_action)  # Use padded action as state
+                action_mask_arrays.append(action_mask)
+            if j != 0:
+                joint_action_arrays.append(padded_action)  # Use padded action
+
+        current_ep += 1
+        total_count += left_gripper_all.shape[0] - 1
         episode_ends_arrays.append(total_count)
 
                 # 精简输出：只显示异常情况
@@ -875,37 +893,23 @@ def process_embodiment_episodes(embodiment_type, episode_list, load_dir, save_di
     
     if joint_action_arrays:
     joint_action_arrays = np.array(joint_action_arrays)
-    else:
-        # 如果没有action数据，创建空的
-        if state_arrays.size > 0:
-            action_dim = state_arrays.shape[1] if state_arrays.ndim > 1 else 1
-            joint_action_arrays = np.zeros((len(state_arrays), action_dim))
-        else:
-            joint_action_arrays = np.zeros((0, 1))
-    
-    # 转换图像格式
+    action_mask_arrays = np.array(action_mask_arrays)
+
+    print(f"Processed data shapes:")
+    print(f"  State: {state_arrays.shape}")
+    print(f"  Action: {joint_action_arrays.shape}")
+    print(f"  Action Mask: {action_mask_arrays.shape}")
+    print(f"  Head Camera: {head_camera_arrays.shape}")
+    print(f"  Episodes: {len(episode_ends_arrays)}")
+
     head_camera_arrays = np.moveaxis(head_camera_arrays, -1, 1)  # NHWC -> NCHW
 
     # 保存到zarr
     compressor = zarr.Blosc(cname="zstd", clevel=3, shuffle=1)
-    
-    # 安全地获取数组维度
-    if state_arrays.size > 0:
-        if state_arrays.ndim == 1:
-            state_chunk_size = (100, 1)
-        else:
-    state_chunk_size = (100, state_arrays.shape[1])
-    else:
-        state_chunk_size = (100, 1)
-    
-    if joint_action_arrays.size > 0:
-        if joint_action_arrays.ndim == 1:
-            joint_chunk_size = (100, 1)
-        else:
-    joint_chunk_size = (100, joint_action_arrays.shape[1])
-    else:
-        joint_chunk_size = (100, 1)
-    
+    # action_chunk_size = (100, action_arrays.shape[1])
+    state_chunk_size = (100, 16)  # Fixed to 16 dimensions
+    joint_chunk_size = (100, 16)  # Fixed to 16 dimensions
+    action_mask_chunk_size = (100, 16)  # Fixed to 16 dimensions
     head_camera_chunk_size = (100, *head_camera_arrays.shape[1:])
     
     # 保存数据
@@ -932,21 +936,23 @@ def process_embodiment_episodes(embodiment_type, episode_list, load_dir, save_di
         overwrite=True,
         compressor=compressor,
     )
-    
-    # 保存文本特征
-    text_feat_arrays = np.array(text_feat_arrays)
-    text_feat_chunk_size = (100, text_feat_arrays.shape[1])
-    safe_create_zarr_dataset(
-        zarr_data, "text_feat",
-        data=text_feat_arrays,
-        chunks=text_feat_chunk_size,
+    zarr_data.create_dataset(
+        "action_mask",
+        data=action_mask_arrays,
+        chunks=action_mask_chunk_size,
+        dtype="float32",
         overwrite=True,
         compressor=compressor,
     )
-    
-    # 保存元数据
-    safe_create_zarr_dataset(
-        zarr_meta, "episode_ends",
+    zarr_data.create_dataset(
+        "text_feat",
+        data=text_feat,
+        dtype="float32",
+        overwrite=True,
+        compressor=compressor,
+    )
+    zarr_meta.create_dataset(
+        "episode_ends",
         data=episode_ends_arrays,
         overwrite=True,
         compressor=compressor,

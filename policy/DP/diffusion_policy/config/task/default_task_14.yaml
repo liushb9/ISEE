@@ -19,8 +19,14 @@ shape_meta: &shape_meta
     agent_pos:
       shape: [14]
       type: low_dim
+    text_feat:
+      shape: [1024]
+      type: text
+    action_mask:
+      shape: [16]
+      type: low_dim
   action:
-    shape: [14]
+    shape: [16]
 
 workspace:
   _target_: diffusion_policy.workspace.robotworkspace.RobotWorkspace

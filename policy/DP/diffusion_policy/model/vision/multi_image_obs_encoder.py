@@ -24,8 +24,9 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         # renormalize rgb input with imagenet normalization
         # assuming input in [0,1]
         imagenet_norm: bool = False,
-        text_feat_dim: int = 1024,  # 新增，text_feat维度
-        text_feat_out_dim: int = 256,  # 新增，MLP输出维度
+        # text feature processing
+        text_mlp_hidden_dim: int = 256,
+        text_mlp_output_dim: int = 128,
     ):
         """
         Assumes rgb input: B,C,H,W
@@ -35,6 +36,7 @@ class MultiImageObsEncoder(ModuleAttrMixin):
 
         rgb_keys = list()
         low_dim_keys = list()
+        text_keys = list()
         key_model_map = nn.ModuleDict()
         key_transform_map = nn.ModuleDict()
         key_shape_map = dict()
@@ -114,10 +116,24 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                 if key == "text_feat":
                     self.text_feat_dim = shape[0]
                 low_dim_keys.append(key)
+            elif type == "text":
+                text_keys.append(key)
             else:
                 raise RuntimeError(f"Unsupported obs type: {type}")
         rgb_keys = sorted(rgb_keys)
         low_dim_keys = sorted(low_dim_keys)
+        text_keys = sorted(text_keys)
+
+        # Create text MLP if there are text features
+        text_mlp = None
+        if len(text_keys) > 0:
+            # Assume all text features have the same dimension (CLIP RN50 has 1024)
+            text_input_dim = 1024  # CLIP RN50 output dimension
+            text_mlp = nn.Sequential(
+                nn.Linear(text_input_dim, text_mlp_hidden_dim),
+                nn.ReLU(),
+                nn.Linear(text_mlp_hidden_dim, text_mlp_output_dim)
+            )
 
         self.shape_meta = shape_meta
         self.key_model_map = key_model_map
@@ -125,7 +141,9 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         self.share_rgb_model = share_rgb_model
         self.rgb_keys = rgb_keys
         self.low_dim_keys = low_dim_keys
+        self.text_keys = text_keys
         self.key_shape_map = key_shape_map
+        self.text_mlp = text_mlp
 
         # 如果有text_feat，定义MLP
         if "text_feat" in low_dim_keys:
@@ -193,6 +211,21 @@ class MultiImageObsEncoder(ModuleAttrMixin):
             else:
                 features.append(data)
 
+        # process text input
+        for key in self.text_keys:
+            data = obs_dict[key]
+            if batch_size is None:
+                batch_size = data.shape[0]
+            else:
+                assert batch_size == data.shape[0]
+            assert data.shape[1:] == self.key_shape_map[key]
+            # Process through MLP
+            if self.text_mlp is not None:
+                processed_text = self.text_mlp(data)
+                features.append(processed_text)
+            else:
+                features.append(data)
+
         # concatenate all features
         result = torch.cat(features, dim=-1)
         return result
@@ -204,7 +237,12 @@ class MultiImageObsEncoder(ModuleAttrMixin):
         batch_size = 1
         for key, attr in obs_shape_meta.items():
             shape = tuple(attr["shape"])
-            this_obs = torch.zeros((batch_size, ) + shape, dtype=self.dtype, device=self.device)
+            type = attr.get("type", "low_dim")
+            if type == "text":
+                # Use actual text feature shape (CLIP RN50 output)
+                this_obs = torch.zeros((batch_size, 1024), dtype=self.dtype, device=self.device)
+            else:
+                this_obs = torch.zeros((batch_size, ) + shape, dtype=self.dtype, device=self.device)
             example_obs_dict[key] = this_obs
         example_output = self.forward(example_obs_dict)
         output_shape = example_output.shape[1:]

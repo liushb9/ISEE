@@ -1,0 +1,752 @@
+{
+    "episode_0": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_1": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_2": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_3": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_4": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_5": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_6": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_7": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_8": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_9": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_10": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_11": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_12": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_13": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_14": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_15": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_16": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_17": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_18": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_19": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_20": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_21": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_22": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_23": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_24": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_25": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_26": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_27": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_28": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_29": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_30": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_31": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_32": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_33": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_34": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_35": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_36": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_37": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    },
+    "episode_38": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_39": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_40": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "left",
+            "{c}": "right"
+        }
+    },
+    "episode_41": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_42": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_43": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_44": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_45": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_46": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_47": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "left",
+            "{b}": "right",
+            "{c}": "right"
+        }
+    },
+    "episode_48": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "left",
+            "{c}": "left"
+        }
+    },
+    "episode_49": {
+        "cluttered_table_info": [],
+        "texture_info": {
+            "wall_texture": null,
+            "table_texture": null
+        },
+        "info": {
+            "{A}": "red block",
+            "{B}": "green block",
+            "{C}": "blue block",
+            "{a}": "right",
+            "{b}": "right",
+            "{c}": "left"
+        }
+    }
+}

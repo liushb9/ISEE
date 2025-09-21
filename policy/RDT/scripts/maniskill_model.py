@@ -5,7 +5,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from configs.state_vec import STATE_VEC_IDX_MAPPING
+from configs.state_vec import STATE_VEC_IDX_MAPPING, create_dynamic_arm_indices
 from models.multimodal_encoder.siglip_encoder import SiglipVisionTower
 from models.multimodal_encoder.t5_encoder import T5Embedder
 from models.rdt_runner import RDTRunner
@@ -194,17 +194,23 @@ class RoboticDiffusionTransformerModel(object):
 
         return pred
 
-    def _format_joint_to_state(self, joints):
+    def _format_joint_to_state(self, joints, arm_dof=7):
         """
         Format the robot joint state into the unified state vector.
+        支持动态自由度，按需填充机制。
 
         Args:
             joints (torch.Tensor): The joint state to be formatted.
-                qpos ([B, N, 14]).
+                qpos ([B, N, D]) where D = arm_dof + 1 (gripper).
+            arm_dof (int): 机械臂自由度 (6 或 7).
 
         Returns:
             state (torch.Tensor): The formatted state for RDT ([B, N, 128]).
+            state_elem_mask (torch.Tensor): Mask indicating valid dimensions ([B, 128]).
         """
+        # 创建动态索引
+        dynamic_indices = create_dynamic_arm_indices(arm_dof, "right")
+
         # Rescale the gripper
         # joints = joints / torch.tensor(
         #     [[[1, 1, 1, 1, 1, 1, 4.7908, 1, 1, 1, 1, 1, 1, 4.7888]]],
@@ -212,40 +218,69 @@ class RoboticDiffusionTransformerModel(object):
         # )
 
         # normalize to -1,1
-        joints = (joints - self.state_min) / (self.state_max - self.state_min) * 2 - 1
+        joints = (joints - self.state_min[:len(dynamic_indices)]) / (self.state_max[:len(dynamic_indices)] - self.state_min[:len(dynamic_indices)]) * 2 - 1
+
         B, N, _ = joints.shape
         state = torch.zeros(
             (B, N, self.args["model"]["state_token_dim"]),
             device=joints.device,
             dtype=joints.dtype,
         )
-        # assemble the unifed state vector
-        state[:, :, MANISKILL_INDICES] = joints
+
+        # 按需填充到统一状态向量
+        state[:, :, dynamic_indices] = joints
+
+        # 创建0-1掩码向量
         state_elem_mask = torch.zeros(
             (B, self.args["model"]["state_token_dim"]),
             device=joints.device,
             dtype=joints.dtype,
         )
-        state_elem_mask[:, MANISKILL_INDICES] = 1
+        state_elem_mask[:, dynamic_indices] = 1
+
         return state, state_elem_mask
 
-    def _unformat_action_to_joint(self, action):
-        action_indices = MANISKILL_INDICES
-        joints = action[:, :, action_indices]
+    def _format_joint_to_state_legacy(self, joints):
+        """
+        Legacy version for backward compatibility.
+        """
+        return self._format_joint_to_state(joints, arm_dof=7)
+
+    def _unformat_action_to_joint(self, action, arm_dof=7):
+        """
+        Unformat the unified action vector into joint actions.
+        支持动态自由度。
+
+        Args:
+            action (torch.Tensor): The unified action vector ([B, N, 128]).
+            arm_dof (int): 机械臂自由度 (6 或 7).
+
+        Returns:
+            joints (torch.Tensor): The unformatted joint actions.
+        """
+        # 创建动态索引
+        dynamic_indices = create_dynamic_arm_indices(arm_dof, "right")
+        joints = action[:, :, dynamic_indices]
 
         # denormalize to action space
-
-        joints = (joints + 1) / 2 * (self.action_max - self.action_min) + self.action_min
+        joints = (joints + 1) / 2 * (self.action_max[:len(dynamic_indices)] - self.action_min[:len(dynamic_indices)]) + self.action_min[:len(dynamic_indices)]
 
         return joints
 
+    def _unformat_action_to_joint_legacy(self, action):
+        """
+        Legacy version for backward compatibility.
+        """
+        return self._unformat_action_to_joint(action, arm_dof=7)
+
     @torch.no_grad()
-    def step(self, proprio, images, text_embeds):
+    def step(self, proprio, images, text_embeds, arm_dof=None):
         """
         Args:
             proprio: proprioceptive states
             images: RGB images
             text_embeds: instruction embeddings
+            arm_dof: 机械臂自由度，如果为None则自动检测
 
         Returns:
             action: predicted action
@@ -304,8 +339,17 @@ class RoboticDiffusionTransformerModel(object):
         image_embeds = image_embeds.reshape(-1, self.vision_model.hidden_size).unsqueeze(0)
 
         # history of actions
-        joints = proprio.to(device).unsqueeze(0)  # (1, 1, 14)
-        states, state_elem_mask = self._format_joint_to_state(joints)  # (1, 1, 128), (1, 128)
+        joints = proprio.to(device).unsqueeze(0)  # (1, 1, D)
+
+        # 确定关节数（6或7自由度+1夹爪）
+        if arm_dof is None:
+            joint_dim = joints.shape[-1]
+            arm_dof = joint_dim - 1  # 自动检测：减去夹爪维度
+        else:
+            # 手动指定自由度
+            pass
+
+        states, state_elem_mask = self._format_joint_to_state(joints, arm_dof)  # (1, 1, 128), (1, 128)
         states, state_elem_mask = states.to(device, dtype=dtype), state_elem_mask.to(device, dtype=dtype)
         states = states[:, -1:, :]  # (1, 1, 128)
         ctrl_freqs = torch.tensor([self.control_frequency]).to(device)

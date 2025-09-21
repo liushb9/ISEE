@@ -1,5 +1,9 @@
 models/
 data/*
+data_aloha-agilex/*
+data_ARX-X5/*
+data_franka-panda/*
+data_ur5-wsg/*
 !data/process_stuck.py
 __pycache__/
 **/checkpoints/
@@ -10,6 +14,10 @@ viewer_show.*
 eval_video/
 task_config/
 **/.DS_Store
+policy/RDT/processed_data
+policy/RDT/training_data
+policy/RDT/wandb
+policy/DP/data
 
 # eval result
 eval_result/

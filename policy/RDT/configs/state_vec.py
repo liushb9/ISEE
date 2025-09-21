@@ -124,3 +124,51 @@ STATE_VEC_IDX_MAPPING = {
     # [103, 128): reserved
 }
 STATE_VEC_LEN = 128
+
+def create_dynamic_arm_indices(arm_dof, side="right"):
+    """
+    动态创建机械臂关节索引映射
+
+    Args:
+        arm_dof (int): 机械臂自由度 (6 或 7)
+        side (str): "left" 或 "right"
+
+    Returns:
+        list: 关节索引列表
+    """
+    if arm_dof not in [6, 7]:
+        raise ValueError(f"不支持的自由度: {arm_dof}，只支持6或7自由度")
+
+    # 关节位置索引
+    arm_indices = []
+    for i in range(arm_dof):
+        key = f"{side}_arm_joint_{i}_pos"
+        if key in STATE_VEC_IDX_MAPPING:
+            arm_indices.append(STATE_VEC_IDX_MAPPING[key])
+
+    # 夹爪索引
+    gripper_key = f"{side}_gripper_open"
+    if gripper_key in STATE_VEC_IDX_MAPPING:
+        arm_indices.append(STATE_VEC_IDX_MAPPING[gripper_key])
+
+    return arm_indices
+
+def create_bimanual_indices(left_dof=6, right_dof=6):
+    """
+    创建双臂的索引映射
+
+    Args:
+        left_dof (int): 左臂自由度
+        right_dof (int): 右臂自由度
+
+    Returns:
+        dict: 包含左臂、右臂和联合索引的字典
+    """
+    left_indices = create_dynamic_arm_indices(left_dof, "left")
+    right_indices = create_dynamic_arm_indices(right_dof, "right")
+
+    return {
+        "left": left_indices,
+        "right": right_indices,
+        "combined": left_indices + right_indices
+    }

@@ -1,5 +1,13 @@
 #!/bin/bash
+echo "--- Debug Info ---"
+echo "Running script with this python: $(which python)"
+echo "Conda active env: $CONDA_DEFAULT_ENV"
+echo "------------------"
+source /media/miniconda3/etc/profile.d/conda.sh
+conda activate /media/miniconda3/envs/rdt_twin
+# ==============================
 
+echo "After activation, python is: $(which python)"
 policy_name=RDT
 task_name=${1}
 task_config=${2}

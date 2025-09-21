@@ -10,12 +10,11 @@ from diffusion_policy.common.sampler import (
     get_val_mask,
     downsample_mask,
 )
-from diffusion_policy.model.common.normalizer import LinearNormalizer
+from diffusion_policy.model.common.normalizer import LinearNormalizer, SingleFieldLinearNormalizer
 from diffusion_policy.dataset.base_dataset import BaseImageDataset
 from diffusion_policy.common.normalize_util import get_image_range_normalizer
 import pdb
-from diffusion_policy.model.common.normalizer import SingleFieldLinearNormalizer
-
+import zarr
 
 class RobotImageDataset(BaseImageDataset):
 
@@ -32,11 +31,19 @@ class RobotImageDataset(BaseImageDataset):
     ):
 
         super().__init__()
+        # Note: text_feat is handled separately as it's a global feature, not per-timestep
         self.replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path,
             # keys=['head_camera', 'front_camera', 'left_camera', 'right_camera', 'state', 'action'],
-            keys=["head_cam", "state", "action", "text_feat"],  # 改为head_cam
+            keys=["head_camera", "state", "action", "action_mask"],
         )
+
+        # Load text_feat separately
+        self.text_feat = None
+        if "text_feat" in zarr.open(zarr_path, 'r')['data']:
+            # import zarr
+            zarr_file = zarr.open(zarr_path, 'r')
+            self.text_feat = zarr_file['data']['text_feat'][:]
 
         val_mask = get_val_mask(n_episodes=self.replay_buffer.n_episodes, val_ratio=val_ratio, seed=seed)
         train_mask = ~val_mask
@@ -60,6 +67,11 @@ class RobotImageDataset(BaseImageDataset):
             k: np.zeros((batch_size, sequence_length, *v.shape[1:]), dtype=v.dtype)
             for k, v in self.sampler.replay_buffer.items()
         }
+
+        # Add text_feat buffer if available
+        if self.text_feat is not None:
+            self.buffers["text_feat"] = np.zeros((batch_size, sequence_length, self.text_feat.shape[1]), dtype=self.text_feat.dtype)
+
         self.buffers_torch = {k: torch.from_numpy(v) for k, v in self.buffers.items()}
         for v in self.buffers_torch.values():
             v.pin_memory()
@@ -171,7 +183,10 @@ class RobotImageDataset(BaseImageDataset):
         normalizer["front_cam"] = get_image_range_normalizer()
         normalizer["left_cam"] = get_image_range_normalizer()
         normalizer["right_cam"] = get_image_range_normalizer()
-        
+        # Don't normalize text_feat - use identity normalizer
+        normalizer["text_feat"] = SingleFieldLinearNormalizer.create_identity(dtype=torch.float32)
+        # Don't normalize action_mask - use identity normalizer
+        normalizer["action_mask"] = SingleFieldLinearNormalizer.create_identity(dtype=torch.float32)
         return normalizer
     
     def _get_pos_normalizer_params(self, min_vals, max_vals, output_max=1, output_min=-1, range_eps=1e-7):
@@ -200,6 +215,14 @@ class RobotImageDataset(BaseImageDataset):
         # right_cam = np.moveaxis(sample['right_camera'],-1,1)/255
         text_feat = sample["text_feat"].astype(np.float32)
 
+        # Handle text_feat: repeat for each timestep since it's a global feature
+        if self.text_feat is not None:
+            # Repeat text_feat for each timestep in the sequence
+            text_feat_repeated = np.repeat(self.text_feat, len(head_cam), axis=0)
+        else:
+            # Fallback: create zero text features
+            text_feat_repeated = np.zeros((len(head_cam), 1024), dtype=np.float32)
+
         data = {
             "obs": {
                 "head_cam": head_cam,  # T, 3, H, W - 确保键名与配置文件一致
@@ -207,9 +230,11 @@ class RobotImageDataset(BaseImageDataset):
                 # 'left_cam': left_cam, # T, 3, H, W
                 # 'right_cam': right_cam, # T, 3, H, W
                 "agent_pos": agent_pos,  # T, D
-                "text_feat": text_feat,  # T, D_text
+                "text_feat": text_feat_repeated.astype(np.float32),  # T, D_text
+                "action_mask": sample["action_mask"].astype(np.float32),  # T, D_action
             },
             "action": sample["action"].astype(np.float32),  # T, D
+            "action_mask": sample["action_mask"].astype(np.float32),  # T, D_action
         }
         return data
 
@@ -233,6 +258,15 @@ class RobotImageDataset(BaseImageDataset):
                     idx,
                     self.sampler.sequence_length,
                 )
+
+            # Handle text_feat separately
+            if self.text_feat is not None and "text_feat" in self.buffers:
+                # Repeat text_feat for each batch item and timestep
+                batch_size, seq_len, feat_dim = self.buffers["text_feat"].shape
+                text_feat_repeated = np.repeat(self.text_feat, batch_size * seq_len, axis=0)
+                text_feat_repeated = text_feat_repeated.reshape(batch_size, seq_len, feat_dim)
+                self.buffers["text_feat"][:] = text_feat_repeated
+
             return self.buffers_torch
         else:
             raise ValueError(idx)
@@ -244,8 +278,19 @@ class RobotImageDataset(BaseImageDataset):
         # front_cam = samples['front_camera'].to(device, non_blocking=True) / 255.0
         # left_cam = samples['left_camera'].to(device, non_blocking=True) / 255.0
         # right_cam = samples['right_camera'].to(device, non_blocking=True) / 255.0
+
+        # Handle text_feat: use the stored global text features
+        if self.text_feat is not None:
+            # Repeat text_feat for each sample in the batch
+            batch_size, seq_len = samples["state"].shape[:2]
+            text_feat_repeated = np.repeat(self.text_feat, batch_size * seq_len, axis=0)
+            text_feat_repeated = text_feat_repeated.reshape(batch_size, seq_len, -1)
+        else:
+            batch_size, seq_len = samples["state"].shape[:2]
+            text_feat_repeated = np.zeros((batch_size, seq_len, 1024), dtype=np.float32)
+
+        action_mask = samples["action_mask"].to(device, non_blocking=True)
         action = samples["action"].to(device, non_blocking=True)
-        text_feat = samples["text_feat"].to(device, non_blocking=True)
         return {
             "obs": {
                 "head_cam": head_cam,  # B, T, 3, H, W - 确保键名与配置文件一致
@@ -253,9 +298,11 @@ class RobotImageDataset(BaseImageDataset):
                 # 'left_cam': left_cam, # B, T, 3, H, W
                 # 'right_cam': right_cam, # B, T, 3, H, W
                 "agent_pos": agent_pos,  # B, T, D
-                "text_feat": text_feat,  # B, T, D_text
+                "text_feat": torch.from_numpy(text_feat_repeated).to(device),  # B, T, D_text
+                "action_mask": action_mask,  # B, T, D_action
             },
             "action": action,  # B, T, D
+            "action_mask": action_mask,  # B, T, D_action
         }
 
 
