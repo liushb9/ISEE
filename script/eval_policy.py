@@ -66,7 +66,7 @@ def main(usr_args):
     task_name = usr_args["task_name"]
     task_config = usr_args["task_config"]
     ckpt_setting = usr_args["ckpt_setting"]
-    checkpoint_num = usr_args['checkpoint_num']
+    # checkpoint_num = usr_args['checkpoint_num']
     policy_name = usr_args["policy_name"]
     instruction_type = usr_args["instruction_type"]
     save_dir = None
@@ -150,6 +150,7 @@ def main(usr_args):
     print("\033[94mEmbodiment Config:\033[0m " + embodiment_name)
     print("\n==================================")
 
+    TASK_ENV = class_decorator(args["task_name"])
     args["policy_name"] = policy_name
     usr_args["left_arm_dim"] = len(args["left_embodiment_config"]["arm_joints_name"][0])
     usr_args["right_arm_dim"] = len(args["right_embodiment_config"]["arm_joints_name"][1])
@@ -162,7 +163,6 @@ def main(usr_args):
     topk = 1
 
     model = get_model(usr_args)
-    TASK_ENV = class_decorator(args["task_name"])
     st_seed, suc_num = eval_policy(task_name,
                                    TASK_ENV,
                                    args,
@@ -292,11 +292,7 @@ def eval_policy(task_name,
         reset_func(model)
         while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
             observation = TASK_ENV.get_obs()
-<<<<<<< Updated upstream
-            eval_func(TASK_ENV, model, observation)  
-=======
-            eval_func(TASK_ENV, model, observation, task_name)
->>>>>>> Stashed changes
+            eval_func(TASK_ENV, model, observation)
             if TASK_ENV.eval_success:
                 succ = True
                 break
