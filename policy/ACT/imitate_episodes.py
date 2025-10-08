@@ -66,10 +66,21 @@ def main(args):
     episode_len = task_config["episode_len"]
     camera_names = task_config["camera_names"]
 
-    # fixed parameters
-    state_dim = 14  # yiheng
+    # dynamic parameters - detect state dimension from data
     lr_backbone = 1e-5
     backbone = "resnet18"
+
+    # Load data to detect state dimension if not provided
+    if args.get("state_dim") is None:
+        print("Detecting state dimension from dataset...")
+        temp_train_dataloader, temp_val_dataloader, temp_stats, _, state_dim = load_data(dataset_dir, min(num_episodes, 10), camera_names, 1, 1)
+        print(f"Auto-detected state dimension: {state_dim}")
+        # Add the detected state_dim to args so it gets passed to the model
+        args["state_dim"] = state_dim
+    else:
+        state_dim = args["state_dim"]
+        print(f"Using provided state dimension: {state_dim}")
+
     if policy_class == "ACT":
         enc_layers = 4
         dec_layers = 7
@@ -86,6 +97,7 @@ def main(args):
             "dec_layers": dec_layers,
             "nheads": nheads,
             "camera_names": camera_names,
+            "state_dim": state_dim,  # Add state dimension to config
         }
     elif policy_class == "CNNMLP":
         policy_config = {
@@ -94,6 +106,7 @@ def main(args):
             "backbone": backbone,
             "num_queries": 1,
             "camera_names": camera_names,
+            "state_dim": state_dim,  # Add state dimension to config
         }
     else:
         raise NotImplementedError
@@ -127,7 +140,8 @@ def main(args):
         print()
         exit()
 
-    train_dataloader, val_dataloader, stats, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train,
+    # Load full dataset (state_dim already detected above)
+    train_dataloader, val_dataloader, stats, _, _ = load_data(dataset_dir, num_episodes, camera_names, batch_size_train,
                                                            batch_size_val)
 
     # save dataset stats
@@ -507,7 +521,7 @@ if __name__ == "__main__":
     parser.add_argument("--kl_weight", action="store", type=int, help="KL Weight", required=False)
     parser.add_argument("--chunk_size", action="store", type=int, help="chunk_size", required=False)
     parser.add_argument("--hidden_dim", action="store", type=int, help="hidden_dim", required=False)
-    parser.add_argument("--state_dim", action="store", type=int, help="state dim", required=True)
+    parser.add_argument("--state_dim", action="store", type=int, help="state dim (auto-detected if not provided)", required=False)
     parser.add_argument("--save_freq", action="store", type=int, help="save ckpt frequency", required=False, default=6000)
     parser.add_argument(
         "--dim_feedforward",

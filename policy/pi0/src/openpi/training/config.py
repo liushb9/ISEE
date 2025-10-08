@@ -381,9 +381,9 @@ _CONFIGS = [
     # pi0_base by lora
     TrainConfig(
         name="pi0_base_aloha_robotwin_lora",
-        model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
+        model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora", action_dim=32),
         data=LeRobotAlohaDataConfig(
-            repo_id="test",  # your datasets repo_id
+            repo_id="pi0_1200",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
@@ -412,7 +412,7 @@ _CONFIGS = [
     # pi0_fast_base by lora
     TrainConfig(
         name="pi0_fast_aloha_robotwin_lora",
-        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora", action_dim=32),
         data=LeRobotAlohaDataConfig(
             repo_id="your_repo_id",  # your datasets repo_id
             adapt_to_pi=False,
@@ -444,9 +444,9 @@ _CONFIGS = [
     # pi0_base by full
     TrainConfig(
         name="pi0_base_aloha_robotwin_full",
-        model=pi0.Pi0Config(),
+        model=pi0.Pi0Config(action_dim=32),
         data=LeRobotAlohaDataConfig(
-            repo_id="your_repo_id",  # your datasets repo_id
+            repo_id="pi0_1200",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
@@ -474,7 +474,7 @@ _CONFIGS = [
     # pi0_fast_base by full
     TrainConfig(
         name="pi0_fast_aloha_robotwin_full",
-        model=pi0_fast.Pi0FASTConfig(),
+        model=pi0_fast.Pi0FASTConfig(action_dim=32),
         data=LeRobotAlohaDataConfig(
             repo_id="your_repo_id",  # your datasets repo_id
             adapt_to_pi=False,

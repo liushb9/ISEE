@@ -64,8 +64,10 @@ class EpisodicDataset(torch.utils.data.Dataset):
                 action_len = episode_len - max(0, start_ts - 1)  # hack, to make timesteps more aligned
 
         self.is_sim = is_sim
-        padded_action = np.zeros((self.max_action_len, action.shape[1]), dtype=np.float32)  # 根据max_action_len初始化
-        padded_action[:action_len] = action
+        # Use the maximum action dimension from norm_stats if available
+        max_action_dim = self.norm_stats.get("max_action_dim", action.shape[1] if len(action.shape) > 1 else action.shape[0])
+        padded_action = np.zeros((self.max_action_len, max_action_dim), dtype=np.float32)
+        padded_action[:action_len, :action.shape[1]] = action
         is_pad = np.ones(self.max_action_len, dtype=bool)  # 初始化为全1（True）
         is_pad[:action_len] = 0  # 前action_len个位置设置为0（False），表示非填充部分
 
@@ -92,50 +94,122 @@ class EpisodicDataset(torch.utils.data.Dataset):
 
         # normalize image and change dtype to float
         image_data = image_data / 255.0
+
+        # Normalize action data (pad to max_action_dim if necessary)
+        current_action_dim = action_data.size(-1) if action_data.dim() > 1 else action_data.size(0)
+        max_action_dim = self.norm_stats.get("max_action_dim", current_action_dim)
+
+        if current_action_dim < max_action_dim:
+            # Pad action_data to max_action_dim
+            if action_data.dim() == 1:
+                # For 1D tensor (single timestep)
+                pad_dim = torch.zeros(max_action_dim - current_action_dim, dtype=action_data.dtype, device=action_data.device)
+                action_data = torch.cat([action_data, pad_dim], dim=-1)
+            else:
+                # For 2D tensor (multiple timesteps)
+                pad_dim = torch.zeros(action_data.size(0), max_action_dim - current_action_dim, dtype=action_data.dtype, device=action_data.device)
+                action_data = torch.cat([action_data, pad_dim], dim=-1)
+
         action_data = (action_data - self.norm_stats["action_mean"]) / self.norm_stats["action_std"]
+
+        # Normalize qpos data (pad to max_state_dim if necessary)
+        current_dim = qpos_data.size(-1) if qpos_data.dim() > 0 else qpos_data.size(0)
+        max_dim = self.norm_stats.get("max_state_dim", current_dim)
+
+        if current_dim < max_dim:
+            # Pad qpos_data to max_state_dim
+            if qpos_data.dim() == 1:
+                # For 1D tensor (single timestep)
+                pad_dim = torch.zeros(max_dim - current_dim, dtype=qpos_data.dtype, device=qpos_data.device)
+                qpos_data = torch.cat([qpos_data, pad_dim], dim=-1)
+            else:
+                # For 2D tensor (multiple timesteps)
+                pad_dim = torch.zeros(qpos_data.size(0), max_dim - current_dim, dtype=qpos_data.dtype, device=qpos_data.device)
+                qpos_data = torch.cat([qpos_data, pad_dim], dim=-1)
+
         qpos_data = (qpos_data - self.norm_stats["qpos_mean"]) / self.norm_stats["qpos_std"]
+
         # text_feat不归一化
 
         return image_data, qpos_data, action_data, is_pad, text_feat_data
 
 
 def get_norm_stats(dataset_dir, num_episodes):
+    # Handle mixed state dimensions by processing each dimension separately
     all_qpos_data = []
     all_action_data = []
+    state_dims = set()
+
     for episode_idx in range(num_episodes):
         dataset_path = os.path.join(dataset_dir, f"episode_{episode_idx}.hdf5")
         with h5py.File(dataset_path, "r") as root:
             qpos = root["/observations/qpos"][()]  # Assuming this is a numpy array
             action = root["/action"][()]
-        all_qpos_data.append(torch.from_numpy(qpos))
-        all_action_data.append(torch.from_numpy(action))
+
+            # Record state dimension
+            current_dim = qpos.shape[1] if len(qpos.shape) > 1 else qpos.shape[0]
+            state_dims.add(current_dim)
+
+            all_qpos_data.append((current_dim, torch.from_numpy(qpos)))
+            all_action_data.append(torch.from_numpy(action))
+
+    print(f"Detected state dimensions in dataset: {sorted(state_dims)}")
+
+    # Find the maximum dimension for padding
+    max_state_dim = max(state_dims) if state_dims else 14
+    print(f"Using maximum state dimension for padding: {max_state_dim}")
+
+    # Also check action dimensions
+    action_dims = set()
+    for action in all_action_data:
+        current_dim = action.size(1) if len(action.size()) > 1 else action.size(0)
+        action_dims.add(current_dim)
+
+    max_action_dim = max(action_dims) if action_dims else 14
+    print(f"Action dimensions found: {sorted(action_dims)}, using max: {max_action_dim}")
 
     # Pad all tensors to the maximum size
-    max_qpos_len = max(q.size(0) for q in all_qpos_data)
+    max_qpos_len = max(qpos_tensor.size(0) for _, qpos_tensor in all_qpos_data)
     max_action_len = max(a.size(0) for a in all_action_data)
 
     padded_qpos = []
-    for qpos in all_qpos_data:
+    for current_dim, qpos in all_qpos_data:
         current_len = qpos.size(0)
+        # Pad time dimension
         if current_len < max_qpos_len:
             # Pad with the last element
             pad = qpos[-1:].repeat(max_qpos_len - current_len, 1)
             qpos = torch.cat([qpos, pad], dim=0)
+
+        # Pad state dimension to maximum
+        if current_dim < max_state_dim:
+            # Pad state dimension with zeros (assuming the extra dimensions are at the end)
+            pad_dim = torch.zeros(qpos.size(0), max_state_dim - current_dim, dtype=qpos.dtype)
+            qpos = torch.cat([qpos, pad_dim], dim=1)
+
         padded_qpos.append(qpos)
 
     padded_action = []
     for action in all_action_data:
         current_len = action.size(0)
+        current_action_dim = action.size(1) if len(action.size()) > 1 else action.size(0)
+
+        # Pad time dimension
         if current_len < max_action_len:
             pad = action[-1:].repeat(max_action_len - current_len, 1)
             action = torch.cat([action, pad], dim=0)
+
+        # Pad action dimension to maximum
+        if current_action_dim < max_action_dim:
+            pad_dim = torch.zeros(action.size(0), max_action_dim - current_action_dim, dtype=action.dtype)
+            action = torch.cat([action, pad_dim], dim=1)
+
         padded_action.append(action)
 
     all_qpos_data = torch.stack(padded_qpos)
     all_action_data = torch.stack(padded_action)
-    all_action_data = all_action_data
 
-    # normalize action data
+    # normalize action data (assuming actions have consistent dimensions)
     action_mean = all_action_data.mean(dim=[0, 1], keepdim=True)
     action_std = all_action_data.std(dim=[0, 1], keepdim=True)
     action_std = torch.clip(action_std, 1e-2, np.inf)  # clipping
@@ -151,6 +225,10 @@ def get_norm_stats(dataset_dir, num_episodes):
         "qpos_mean": qpos_mean.numpy().squeeze(),
         "qpos_std": qpos_std.numpy().squeeze(),
         "example_qpos": qpos,
+        "state_dims": sorted(list(state_dims)),
+        "max_state_dim": max_state_dim,
+        "action_dims": sorted(list(action_dims)),
+        "max_action_dim": max_action_dim,
         # 不包含text_feat的归一化统计信息
     }
 
@@ -188,7 +266,7 @@ def load_data(dataset_dir, num_episodes, camera_names, batch_size_train, batch_s
         prefetch_factor=1,
     )
 
-    return train_dataloader, val_dataloader, norm_stats, train_dataset.is_sim
+    return train_dataloader, val_dataloader, norm_stats, train_dataset.is_sim, norm_stats.get("max_state_dim")
 
 
 ### env utils

@@ -283,7 +283,11 @@ def build_encoder(args):
 
 
 def build(args):
-    state_dim = 14  # TODO hardcode
+    state_dim = getattr(args, 'state_dim', None)  # Get state_dim from args
+    if state_dim is None:
+        # If not provided, try to infer from other sources or use default
+        state_dim = 14  # Default fallback
+    print(f"Building ACT model with state_dim: {state_dim}")
 
     # From state
     # backbone = None # from state for now, no need for conv nets
@@ -312,7 +316,11 @@ def build(args):
 
 
 def build_cnnmlp(args):
-    state_dim = 16  # TODO hardcode
+    state_dim = getattr(args, 'state_dim', None)  # Get state_dim from args
+    if state_dim is None:
+        # If not provided, try to infer from other sources or use default
+        state_dim = 14  # Default fallback
+    print(f"Building CNNMLP model with state_dim: {state_dim}")
 
     # From state
     # backbone = None # from state for now, no need for conv nets

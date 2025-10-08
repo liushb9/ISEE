@@ -42,7 +42,31 @@ def create_empty_dataset(
     has_velocity: bool = False,
     has_effort: bool = False,
     dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
+    hdf5_files: list[Path] | None = None,
 ) -> LeRobotDataset:
+    # Detect robot DOF from the data files
+    max_dof = 0
+    if hdf5_files and len(hdf5_files) > 0:
+        try:
+            # Check all files to find the maximum DOF
+            for file_path in hdf5_files:
+                try:
+                    with h5py.File(file_path, "r") as ep:
+                        if "/observations/qpos" in ep:
+                            qpos_shape = ep["/observations/qpos"].shape
+                            if len(qpos_shape) > 1:
+                                current_dof = qpos_shape[1]
+                                if current_dof > max_dof:
+                                    max_dof = current_dof
+                                    print(f"Found {current_dof}DOF data in {file_path.name}")
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    is_16dof = max_dof == 16
+    print(f"Detected maximum DOF: {max_dof}")
+
     motors = [
         "left_waist",
         "left_shoulder",
@@ -59,6 +83,16 @@ def create_empty_dataset(
         "right_wrist_rotate",
         "right_gripper",
     ]
+
+    if is_16dof:
+        # For 16DOF robots, add an extra joint (e.g., left_shoulder_yaw, right_shoulder_yaw)
+        motors_16dof = motors.copy()
+        # Insert extra joints for 16DOF robots
+        motors_16dof.insert(2, "left_shoulder_yaw")  # Add extra joint for left arm
+        motors_16dof.insert(11, "right_shoulder_yaw")  # Add extra joint for right arm
+        motors = motors_16dof
+
+    print(f"Using motors: {motors}")
 
     cameras = [
         "cam_high",
@@ -115,7 +149,8 @@ def create_empty_dataset(
     if Path(HF_LEROBOT_HOME / repo_id).exists():
         shutil.rmtree(HF_LEROBOT_HOME / repo_id)
 
-    return LeRobotDataset.create(
+    # Create dataset with dynamic motors based on detected DOF
+    dataset = LeRobotDataset.create(
         repo_id=repo_id,
         fps=50,
         robot_type=robot_type,
@@ -126,6 +161,8 @@ def create_empty_dataset(
         image_writer_threads=dataset_config.image_writer_threads,
         video_backend=dataset_config.video_backend,
     )
+
+    return dataset
 
 
 def get_cameras(hdf5_files: list[Path]) -> list[str]:
@@ -205,6 +242,7 @@ def populate_dataset(
     hdf5_files: list[Path],
     task: str,
     episodes: list[int] | None = None,
+    motors: list[str] | None = None,
 ) -> LeRobotDataset:
     if episodes is None:
         episodes = range(len(hdf5_files))
@@ -214,6 +252,13 @@ def populate_dataset(
 
         imgs_per_cam, state, action, velocity, effort = load_raw_episode_data(ep_path)
         num_frames = state.shape[0]
+
+        # Detect the actual DOF of this data file
+        actual_dof = state.shape[1]
+
+        # If motors is provided and actual_dof doesn't match expected_dof, we need to handle it
+        expected_dof = len(motors) if motors else actual_dof
+
         # add prompt
         dir_path = os.path.dirname(ep_path)
         json_Path = f"{dir_path}/instructions.json"
@@ -223,9 +268,23 @@ def populate_dataset(
             instructions = instruction_dict['instructions']
             instruction = np.random.choice(instructions)
         for i in range(num_frames):
+            # Ensure state and action have the correct shape
+            state_i = state[i]
+            action_i = action[i]
+
+            # Pad or truncate to match expected DOF
+            if actual_dof < expected_dof:
+                # Pad with zeros
+                state_i = torch.cat([state_i, torch.zeros(expected_dof - actual_dof, dtype=state_i.dtype)])
+                action_i = torch.cat([action_i, torch.zeros(expected_dof - actual_dof, dtype=action_i.dtype)])
+            elif actual_dof > expected_dof:
+                # Truncate
+                state_i = state_i[:expected_dof]
+                action_i = action_i[:expected_dof]
+
             frame = {
-                "observation.state": state[i],
-                "action": action[i],
+                "observation.state": state_i,
+                "action": action_i,
                 "task": instruction,
             }
 
@@ -254,6 +313,60 @@ def port_aloha(
     mode: Literal["video", "image"] = "image",
     dataset_config: DatasetConfig = DEFAULT_DATASET_CONFIG,
 ):
+    # Detect robot DOF from the data files
+    max_dof = 0
+    hdf5_files = []
+    for root, _, files in os.walk(raw_dir):
+        for filename in fnmatch.filter(files, '*.hdf5'):
+            file_path = os.path.join(root, filename)
+            hdf5_files.append(Path(file_path))
+
+    if hdf5_files:
+        try:
+            # Check all files to find the maximum DOF
+            for file_path in hdf5_files:
+                try:
+                    with h5py.File(file_path, "r") as ep:
+                        if "/observations/qpos" in ep:
+                            qpos_shape = ep["/observations/qpos"].shape
+                            if len(qpos_shape) > 1:
+                                current_dof = qpos_shape[1]
+                                if current_dof > max_dof:
+                                    max_dof = current_dof
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    is_16dof = max_dof == 16
+    print(f"Detected maximum DOF: {max_dof}")
+
+    motors = [
+        "left_waist",
+        "left_shoulder",
+        "left_elbow",
+        "left_forearm_roll",
+        "left_wrist_angle",
+        "left_wrist_rotate",
+        "left_gripper",
+        "right_waist",
+        "right_shoulder",
+        "right_elbow",
+        "right_forearm_roll",
+        "right_wrist_angle",
+        "right_wrist_rotate",
+        "right_gripper",
+    ]
+
+    if is_16dof:
+        # For 16DOF robots, add an extra joint (e.g., left_shoulder_yaw, right_shoulder_yaw)
+        motors_16dof = motors.copy()
+        # Insert extra joints for 16DOF robots
+        motors_16dof.insert(2, "left_shoulder_yaw")  # Add extra joint for left arm
+        motors_16dof.insert(11, "right_shoulder_yaw")  # Add extra joint for right arm
+        motors = motors_16dof
+
+    print(f"Using motors: {motors}")
     if (HF_LEROBOT_HOME / repo_id).exists():
         shutil.rmtree(HF_LEROBOT_HOME / repo_id)
 
@@ -274,12 +387,14 @@ def port_aloha(
         has_effort=has_effort(hdf5_files),
         has_velocity=has_velocity(hdf5_files),
         dataset_config=dataset_config,
+        hdf5_files=hdf5_files,
     )
     dataset = populate_dataset(
         dataset,
         hdf5_files,
         task=task,
         episodes=episodes,
+        motors=motors,
     )
     # dataset.consolidate()
 

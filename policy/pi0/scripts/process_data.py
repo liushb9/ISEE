@@ -62,7 +62,7 @@ def data_transform(path, episode_num, save_path):
     for i in range(episode_num):
 
         desc_type = "seen"
-        instruction_data_path = os.path.join(path, "instructions", f"episode{i}.json")
+        instruction_data_path = os.path.join(path, "instructions", f"episode{0}.json")
         with open(instruction_data_path, "r") as f_instr:
             instruction_dict = json.load(f_instr)
         instructions = instruction_dict[desc_type]
