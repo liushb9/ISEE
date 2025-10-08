@@ -18,6 +18,27 @@ def encode_obs(observation):
         observation["observation"]["left_camera"]["rgb"],
     ]
     input_state = observation["joint_action"]["vector"]
+    
+    # Handle variable DOF: pad or truncate to match model's expected action_dim (32)
+    # The model was trained with action_dim=32, so we need to ensure consistent input size
+    expected_dim = 32
+    actual_dim = len(input_state)
+    
+    # Store original state for reference
+    original_state = input_state.copy()
+    
+    if actual_dim < expected_dim:
+        # Pad with zeros for smaller DOF robots (e.g., 14DOF -> 32DOF)
+        padded_state = np.zeros(expected_dim)
+        padded_state[:actual_dim] = input_state
+        input_state = padded_state
+        print(f"Padded state from {actual_dim}DOF to {expected_dim}DOF")
+    elif actual_dim > expected_dim:
+        # Truncate for larger DOF robots (e.g., 16DOF -> 32DOF, but this shouldn't happen with our current setup)
+        input_state = input_state[:expected_dim]
+        print(f"Truncated state from {actual_dim}DOF to {expected_dim}DOF")
+    else:
+        print(f"State dimension matches expected: {actual_dim}DOF")
 
     return input_rgb_arr, input_state
 

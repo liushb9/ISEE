@@ -40,6 +40,9 @@ class PI0:
         self.img_size = (224, 224)
         self.observation_window = None
         self.pi0_step = pi0_step
+        # Store the model's action_dim for reference
+        self.model_action_dim = config.model.action_dim
+        print(f"Model action_dim: {self.model_action_dim}")
 
     # set img_size
     def set_img_size(self, img_size):
@@ -74,7 +77,34 @@ class PI0:
 
     def get_action(self):
         assert self.observation_window is not None, "update observation_window first!"
-        return self.policy.infer(self.observation_window)["actions"]
+        actions = self.policy.infer(self.observation_window)["actions"]
+        
+        # The model outputs actions with shape [action_horizon, model_action_dim]
+        # We need to adapt this to the actual robot's DOF
+        # The input state was padded to model_action_dim, but we need to extract only the relevant dimensions
+        
+        # Detect actual DOF by finding non-zero values in the state
+        state = self.observation_window["state"]
+        non_zero_mask = np.abs(state) > 1e-6  # Threshold for non-zero values
+        actual_dof = np.sum(non_zero_mask)
+        
+        if actual_dof > 0 and actual_dof < self.model_action_dim:
+            # Extract only the relevant action dimensions (first actual_dof dimensions)
+            actions = actions[:, :actual_dof]
+            print(f"Extracted actions for {actual_dof}DOF robot from {self.model_action_dim}DOF model output")
+        elif actual_dof == self.model_action_dim:
+            # All dimensions are non-zero, use full action
+            print(f"Using full {actual_dof}DOF actions from model output")
+        else:
+            # Fallback: assume 14DOF or 16DOF based on common robot configurations
+            if actual_dof == 0:  # All zeros, this shouldn't happen
+                print("Warning: All state values are zero, assuming 14DOF robot")
+                actual_dof = 14
+                actions = actions[:, :actual_dof]
+            else:
+                print(f"Warning: Unexpected DOF detected: {actual_dof}, using full model output")
+        
+        return actions
 
     def reset_obsrvationwindows(self):
         self.instruction = None
